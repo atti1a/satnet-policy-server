@@ -13,7 +13,7 @@ void ack_cb(time_t start, time_t end, int gsID, bool accepted)
 
 int main(int argc, char **argv)
 {
-    int fd = open("test.json", O_RDONLY);
+    int fd = open("ack_test.json", O_RDONLY);
 
     Process *proc = new Process(NULL, WD_DISABLED);
 

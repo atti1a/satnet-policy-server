@@ -22,15 +22,29 @@ struct TimeRequest
    bool withdrawl;
 };
 
+struct GroundStationInfo
+{
+    float lat;
+    float lon;
+    int gsID;
+    //TO DO other info
+};
+
 class MissionSocket
 {
    public:
    MissionSocket(int socketFD, Process *proc, ack_callback cb);
    int send_time_request();
    int queue_time_reqest(time_t start, time_t end, int gsID);
-   static int read_cb(int fd, char type, void *arg);
+   
+
 
    private:
+   int parse_gs_list(Value& gs_list);
+   static int read_cb(int fd, char type, void *arg);
+   static int write_cb(int fd, char type, void *arg);
+
+
    std::vector<struct TimeRequest>  queued_requests;
 
    Process *proc;
@@ -43,13 +57,21 @@ class MissionSocket
    //vars for sending data
    char sendEvt = 0;
    char *send_buf;
+   int send_buf_pos;
+   int mess_len;
 
    //vars for receiving data
    char *recv_buf;
    int recv_buf_pos;
 
+
    int attempt_parse(char *buff);
    int parse_ack(Value& ack_list);
+
+   //save ground stations as they come in 
+   std::vector<struct GroundStationInfo> gs_info;
 };
+
+
 
 #endif
