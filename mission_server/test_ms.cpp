@@ -1,5 +1,6 @@
 #include "mission_server.h"
 #include <fcntl.h>
+#include <stdio.h>
 
 void ack_cb(time_t start, time_t end, int gsID, bool accepted)
 {
