@@ -44,6 +44,11 @@ void canc_cb(int reqID)
 
 }
 
+void wd_cb(int reqID, bool accepted)
+{
+    
+}
+
 void add_time(MissionSocket& ms, time_t start, time_t end, int gsID)
 {
     int id = ms.queue_time_reqest(start, end, gsID);
@@ -68,7 +73,7 @@ int main(int argc, char **argv)
 
     Process *proc = new Process(NULL, WD_DISABLED);
 
-    MissionSocket ms = MissionSocket(fd, proc, &ack_cb, &gs_cb, &canc_cb);
+    MissionSocket ms = MissionSocket(fd, proc, &ack_cb, &gs_cb, &canc_cb, &wd_cb);
 
     add_time(ms, 12, 13, 101);
     add_time(ms, 23, 26, 102);

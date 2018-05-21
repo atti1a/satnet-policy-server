@@ -12,6 +12,7 @@ using namespace rapidjson;
 typedef void (*response_cb)(int reqID, bool accepted);
 typedef void (*cancel_cb)(int reqID);
 typedef void (*gs_update_cb)(std::vector<struct GroundStationInfo>& gs_list);
+typedef void (*withdrawl_cb)(int reqID, bool accepted);
 
 struct TimeRequest
 {
@@ -24,16 +25,17 @@ struct TimeRequest
 
 struct GroundStationInfo
 {
-    float lat;
-    float lon;
-    int gsID;
-    //TO DO other info
+   float lat;
+   float lon;
+   int gsID;
+   //TO DO other info
 };
 
 class MissionSocket
 {
    public:
-   MissionSocket(int socketFD, Process *proc, response_cb resp_cb, gs_update_cb gs_cb, cancel_cb canc_cb);
+   MissionSocket(int socketFD, Process *proc, response_cb resp_cb, 
+      gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb);
    //sends all queued time requests, returns number of requests sent
    int send_time_request();
    //queues a time request to be sent to policy server (send using send_time_request())
@@ -48,7 +50,7 @@ class MissionSocket
    private:
    //private functions
    int attempt_parse(char *buff);
-   void parse_ack(Value& ack_list);
+   void parse_resp(Value& resp_list);
    void parse_gs_list(Value& gs_list);
    void parse_cancel(Value& cancel);
    static int read_cb(int fd, char type, void *arg);
@@ -62,6 +64,7 @@ class MissionSocket
    response_cb resp_cb;
    gs_update_cb gs_cb;
    cancel_cb canc_cb;
+   withdrawl_cb wd_cb;
 
    int nextReqID;
 

@@ -1,0 +1,66 @@
+//initialization (MS->PS)
+{
+    "type": "INIT", "msID": 12, "name": "myMissionServer"
+}
+
+//time request (TR) (MS->PS)
+{
+    "type": "TR", "trList":
+    [
+        //ask for time
+        //fields are request ID, groundstation ID, start time, end time, withdrawl(false)
+        {
+            "reqID": 0, "gsID": 0, "start": 0, "end":1, "wd": false
+        },
+        //withdrawl request for time
+        //fields are request ID, withdrawl(true)
+        {
+            "reqID": 1, "wd": true
+        }
+    ]
+}
+
+//TR response (PS->MS)
+{
+    "type":"RESP", "respList" : 
+    [
+        //fields are request id, ack/nack, withdrawl/not
+        {
+            "reqID": 4, "ack" : true, "wd": false
+        },
+        {
+            "reqID": 3, "ack" : false, "wd": false
+        },
+        {
+            "reqID": 1, "ack": true, "wd": true
+        }
+    ]
+}
+
+//GS info (PS->MS)
+{
+    "type":"GS", "gsList":
+    [
+        //fields are groundsation ID, latitude, longitude
+        {
+            "gsID": 0, "lat": 0, "long" : 0
+        },
+        {
+            "gsID": 1, "lat": 1, "long" : 1
+        }
+    ]
+}
+
+//cancel TR (PS->MS)
+{
+    "type": "cancel", "cancelList":
+    [
+        //only field is request ID to be canceled
+        {
+            "reqID": 1
+        },
+        {
+            "reqID": 2
+        }
+    ]
+}

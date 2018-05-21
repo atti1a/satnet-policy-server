@@ -1,11 +1,12 @@
+
 {
-    "type":"ack", "data" : 
+    "type":"resp", "respList" : 
     [
         {
-            "reqID": 1, "ackType" : true
+            "reqID": 1, "ack" : true
         },
         {
-            "reqID": 3, "ackType" : false
+            "reqID": 3, "ack" : false
         }
     ]
 }
