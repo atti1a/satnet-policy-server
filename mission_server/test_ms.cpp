@@ -36,12 +36,21 @@ void ack_cb(int reqID, bool accepted)
 
 void gs_cb(std::vector<struct GroundStationInfo>& gs_list)
 {
-    //DO something
+    //TO DO
+    //Use TLE to propagate forward through time
+    //Match with the lat and long of gs in list
+    //send time requests
 }
 
 void canc_cb(int reqID)
 {
-
+    if(time_requests.count(reqID) == 0){
+        printf("Invalid ID for cancellation\n");
+        return;
+    }
+    struct TR& tr = time_requests[reqID];
+    tr.state = CANCEL; 
+    printf("Cancelled time on gs %d from %ld to %ld\n", tr.gsID, tr.start, tr.end);
 }
 
 void add_time(MissionSocket& ms, time_t start, time_t end, int gsID)
