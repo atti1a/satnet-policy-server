@@ -18,17 +18,17 @@ using namespace rapidjson;
 * make gs info available to user
 */
 
-void MissionSocket::parse_ack(Value& ack_list)
+void MissionSocket::parse_resp(Value& resp_list)
 {
-   for(int i = 0; i < ack_list.Size(); i++){
-      if(ack_list[i].HasMember("reqID") && ack_list[i]["reqID"].IsInt() && ack_list[i].HasMember("ackType") && ack_list[i]["ackType"].IsBool()){
+   for(int i = 0; i < resp_list.Size(); i++){
+      if(resp_list[i].HasMember("reqID") && resp_list[i]["reqID"].IsInt() && resp_list[i].HasMember("ack") && resp_list[i]["ack"].IsBool()){
          //check withdrawl case
-         if(ack_list[i].HasMember("withdrawl") && ack_list[i]["withdrawl"].IsBool() && ack_list[i]["withdrawl"].GetBool()){
-            //TODO call time request withdrawl callback
+         if(resp_list[i].HasMember("wd") && resp_list[i]["wd"].IsBool() && resp_list[i]["wd"].GetBool()){
+            wd_cb(resp_list[i]["reqID"].GetInt(), resp_list[i]["ack"].GetBool());
          }
          else{
             //ack callback
-            resp_cb(ack_list[i]["reqID"].GetInt(), ack_list[i]["ackType"].GetBool());
+            resp_cb(resp_list[i]["reqID"].GetInt(), resp_list[i]["ack"].GetBool());
          }
       }
       else{
@@ -86,29 +86,29 @@ int MissionSocket::attempt_parse(char *buff)
       printf("Missing type, ignoring json structure\n");
       return size_parsed;
    }
-   if(d["type"] == "ack"){
-      printf("parsing ack\n");
-      if(!d.HasMember("data") || !d["data"].IsArray()){
+   if(d["type"] == "RESP"){
+      printf("parsing response\n");
+      if(!d.HasMember("respList") || !d["respList"].IsArray()){
          printf("Missing ACK list\n");
          return size_parsed;
       }
-      parse_ack(d["data"]);
+      parse_resp(d["respList"]);
    }
    //expect to see a vector of all groundstations that are available
-   else if(d["type"] == "gs"){
+   else if(d["type"] == "GS"){
       printf("parsing gs\n");
-      if(!d.HasMember("data") || !d["data"].IsArray()){
+      if(!d.HasMember("gsList") || !d["gsList"].IsArray()){
          printf("Missing groundstation list\n");
          return size_parsed;
       }
-      parse_gs_list(d["data"]);
+      parse_gs_list(d["gsList"]);
    }
    else if(d["type"] == "cancel"){
-      if(!d.HasMember("data") || ! d["data"].IsObject()){
+      if(!d.HasMember("cancelList") || ! d["cancelList"].IsObject()){
          printf("Invalid cancel json object\n");
          return size_parsed;
       }
-      parse_cancel(d["data"]);
+      parse_cancel(d["cancelList"]);
    }
    else{
       printf("Invalid header type\n");
@@ -170,13 +170,15 @@ int MissionSocket::write_cb(int fd, char type, void *arg)
 }
 
 //constructor
-MissionSocket::MissionSocket(int socketFD, Process *proc, response_cb resp_cb, gs_update_cb gs_cb, cancel_cb canc_cb)
+MissionSocket::MissionSocket(int socketFD, Process *proc, response_cb resp_cb, 
+      gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb)
 {
    this->proc = proc;
    this->socketFD = socketFD;
    this->resp_cb = resp_cb;
    this->gs_cb = gs_cb;
    this->canc_cb = canc_cb;
+   this->wd_cb = wd_cb;
    EVT_fd_add(proc->event_manager()->state(), socketFD, EVENT_FD_READ, &read_cb, this);
    nextReqID = 1;
 
@@ -228,7 +230,7 @@ int MissionSocket::send_time_request()
    writer.String("type");
    writer.String("TR");
 
-   writer.String("data");
+   writer.String("trList");
    writer.StartArray();
    for(int i = 0; i < queued_requests.size(); i++){
       writer.StartObject();
@@ -247,7 +249,7 @@ int MissionSocket::send_time_request()
          writer.Int(queued_requests[i].end);
       }
 
-      writer.String("withdrawl");
+      writer.String("wd");
       writer.Bool(queued_requests[i].withdrawl);
 
       writer.EndObject();
