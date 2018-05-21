@@ -2,10 +2,10 @@
     "type":"ack", "data" : 
     [
         {
-            "reqID": 12, "start" : 1444, "end" : 1446, "gsID" : 55, "ackType" : true
+            "reqID": 1, "ackType" : true
         },
         {
-            "reqID": 13, "start" : 3444, "end" : 4446, "gsID" : 77, "ackType" : false
+            "reqID": 3, "ackType" : false
         }
     ]
 }
