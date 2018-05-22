@@ -2,23 +2,23 @@ import json
 
 def strip_groundstation_metadata(groundstation_metadata):
    """
-   Strips down metadata, because we don't actually want to broadcast all info
-      just the info that's necessary for other mission servers to make its
-      decision
+   Strips down groundstation metadata packet, because we don't actually want to
+   broadcast all info just the info that's necessary for other mission servers
+   to make its decision
 
    Args:
-      groundstation_metadata: the metadata we recieve from the groundstation
+      groundstation_metadata: the metadata packet we recieve from the groundstation
          (JSON object)
 
-   Returns: a schedule for a groundstation (JSON file to be sent)
+   Returns: stripped down groundstation metadata (JSON file to be sent)
    """
 
-   # create stripped down metadata (schedule)
+   # create stripped down metadata
    stripped_metadata = {}
    required_fields_in_stripped_metadata = {
-         'location',
-         'authority_policy_server',
-         'groundstation_id'
+      'location',
+      'authority_policy_server',
+      'groundstation_id'
    }
 
    for required_field in required_fields_in_stripped_metadata:
@@ -26,53 +26,51 @@ def strip_groundstation_metadata(groundstation_metadata):
 
    return json.dumps(stripped_metadata)
 
-def relay_groundstation_sched(self, groundstation, metadata):
+def relay_stripped_groundstation_metadata(self, groundstation_metadata):
    """
-   Event: on recieve of our own ground station metadata
+   Event: on recieve of our own ground station metadata packet
 
-   Extracts necessary info from metadata to create a groundstation schedule.
-   Relays a groundstations schedule to a server (policy and mission).
+   Strips the groundstation metadata into information other mission servers
+   require in order to make a decision what groundstations it wants. (We don't
+   want to share all of our groundstations data, just what's necessary). Then
+   it relays this stripped groundstationd data to all connected servers
+   (policy and mission).
 
    Args:
       self: maybe a policy server is an obejct with a list/set/dict of all servers
          (mission and policy) it is connected to. We will need addresses of both
          for communication.
 
-      groundstation: some identifier for the ground station
-
       metadata: the metadata we recieve from the groundstation
 
    Returns:
    """
-   stripped_groundstation_metadata = strip_groundstation_metadata(metadata)
+   stripped_groundstation_metadata = strip_groundstation_metadata(groundstation_metadata)
 
    # Relay the groundstation schedule to all connected servers
    for mission_server in self.mission_servers:
+      # For mission_serves, you can have a different strip function, since you might
+      # be willing to share more data with you rown mission servers vs. other
+      # policy servers
       self.connections[mission_server].send(stripped_groundstation_metadata)
    for policy_server in self.policy_servers:
       self.connections[policy_server].send(stripped_groundstation_metadata)
 
    return
 
-def fwd_groundstation_sched(self, policy_server, groundstation, schedule):
+def fwd_stripped_groundstation_metadata(self, stripped_groundstaiton_metadata):
    """
-   Event: On receive of another school's ground stations schedule from another
-      school's server (policy)
+   Event: On receive of another school's stripped groundstation metadata packet
+      from another school's server (policy)
 
-   Forwards this schedule to its own servers (mission)
+   Forwards this groundstation metadata packet to its own servers (mission)
 
    Args:
       self: maybe a policy server is an object with a list/set/dict of all servers
          (mission and policy) it is connected to. We will need addresses of just
          the server (mission) for communication.
 
-      policy_server: identifier for server (policy) that is in charge of the
-         groundstation
-
-      groundstation: some identifier for the ground station we are getting
-         the schedule from
-
-      schedule: a list of times and location a ground station is free
+      stripped_data: a stripped metadata of some groundstation
 
    Returns:
    """
@@ -80,34 +78,28 @@ def fwd_groundstation_sched(self, policy_server, groundstation, schedule):
    # For each connected mission server (SELF)
       # Forward your recieved schedule from someone else's groundstation (GROUNDSTATION)
 
-def fwd_groundsation_request(self, mission_server, policy_server, groundstation, request_schedule):
-   """
-   Event: On receive of a schedule request for another school's ground station
-      from our own server (mission)
 
-   Forwards this schedule to other servers (policy)
+def fwd_groundsation_request(self, ground_station_request):
+   """
+   Event: On receive of a ground station request for another school's ground
+      station from our own server (mission)
+
+   Forwards this schedule to corresponding servers (policy)
 
    Args:
       self: maybe a policy server is an obejct with a list of all servers
       (mission and policy) it is connected to. We will need addresses of just
       the servers (policy) for communication.
 
-      mission_server: the server (mission) that is reqeusting groundstation time
-
-      policy_server: identifier for server (policy) that is in charge of the
-         groundstation
-
-      groundstation: the groundstation we want to request schedule time with.
-
-      request_schedule: A schedule that a server (misison) wants from a
-         groundstation
+      ground_station_request: A ground station request packet indicating what
+         ground station a server (mission) wants scheduled time with
 
    Returns:
    """
 
    # tell Purdue's (or some school) policy server that I want this schedule
 
-def sched_groundstation_request(self, mission_server, policy_server, groundstation, request_schedule):
+def sched_groundstation_request(self, ground_station_request):
    """
    Event: on recieve of requests for a server's (policy) our own groundstations
 
@@ -117,20 +109,9 @@ def sched_groundstation_request(self, mission_server, policy_server, groundstati
    policy server for which the requesting misison server is under.
 
    Args:
-      requester: the server making the request. since we have a list of all servers we
-         are connected to, we can probbaly just have a requester be an ID for which
-         we can LU into our local list of servers and get the requester address so we
-         can send the confirmation/deny of their groundstation request
+      groundstation_request: a groundstation request packet
 
-      mission_server: the server (mission) that is making the request for ground
-         station time
-
-      policy_server: identifier for server (policy) that is in charge of the
-         groundstation
-
-      groundstation: the groundstation requested
-
-   Returns: Nothing
+   Returns:
    """
 
 def control_groundstation(self):
