@@ -1,16 +1,30 @@
-def create_groundstation_schedule(groundstation_metadata):
+import json
+
+def strip_groundstation_metadata(groundstation_metadata):
    """
-   Uses necessary info from metadata to create a groundstation schedule.
+   Strips down metadata, because we don't actually want to broadcast all info
+      just the info that's necessary for other mission servers to make its
+      decision
 
    Args:
       groundstation_metadata: the metadata we recieve from the groundstation
+         (JSON object)
 
-   Returns: a schedule for a groundstation
+   Returns: a schedule for a groundstation (JSON file to be sent)
    """
 
-   # Instantiate a schedule object
+   # create stripped down metadata (schedule)
+   stripped_metadata = {}
+   required_fields_in_stripped_metadata = {
+         'location',
+         'authority_policy_server',
+         'groundstation_id'
+   }
 
-   # Loop through the ground_station data and fill in/add to the schedule object
+   for required_field in required_fields_in_stripped_metadata:
+      stripped_metadata[required_field] = groundstation_metadata[required_field]
+
+   return json.dumps(stripped_metadata)
 
 def relay_groundstation_sched(self, groundstation, metadata):
    """
@@ -30,13 +44,15 @@ def relay_groundstation_sched(self, groundstation, metadata):
 
    Returns:
    """
-   groundstation_schedule = create_groundstation_schedule(metadata)
+   stripped_groundstation_metadata = strip_groundstation_metadata(metadata)
 
    # Relay the groundstation schedule to all connected servers
-   # loop through all connected policy servers (SELF.POLICY_SERVERS)
-      # forward groundstation schedule
-   # loop throuhg all connecte mission servers (SELF.MISSION_SERVERS)
-      # forward groundstation schedule
+   for mission_server in self.mission_servers:
+      self.connections[mission_server].send(stripped_groundstation_metadata)
+   for policy_server in self.policy_servers:
+      self.connections[policy_server].send(stripped_groundstation_metadata)
+
+   return
 
 def fwd_groundstation_sched(self, policy_server, groundstation, schedule):
    """
@@ -46,7 +62,7 @@ def fwd_groundstation_sched(self, policy_server, groundstation, schedule):
    Forwards this schedule to its own servers (mission)
 
    Args:
-      self: maybe a policy server is an obejct with a list/set/dict of all servers
+      self: maybe a policy server is an object with a list/set/dict of all servers
          (mission and policy) it is connected to. We will need addresses of just
          the server (mission) for communication.
 
