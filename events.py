@@ -52,13 +52,13 @@ def relay_stripped_groundstation_metadata(self, groundstation_metadata):
       # For mission_serves, you can have a different strip function, since you might
       # be willing to share more data with you rown mission servers vs. other
       # policy servers
-      self.connections[mission_server].send(stripped_groundstation_metadata)
+      self.mission_server.send(stripped_groundstation_metadata)
    for policy_server in self.policy_servers:
-      self.connections[policy_server].send(stripped_groundstation_metadata)
+      self.policy_server.send(stripped_groundstation_metadata)
 
    return
 
-def fwd_stripped_groundstation_metadata(self, stripped_groundstaiton_metadata):
+def fwd_stripped_groundstation_metadata(self, stripped_groundstation_metadata):
    """
    Event: On receive of another school's stripped groundstation metadata packet
       from another school's server (policy)
@@ -77,14 +77,15 @@ def fwd_stripped_groundstation_metadata(self, stripped_groundstaiton_metadata):
 
    # For each connected mission server (SELF)
       # Forward your recieved schedule from someone else's groundstation (GROUNDSTATION)
-
+   for mission_server in self.mission_servers:
+      self.mission_server.send(stripped_groundstation_metadata)
 
 def fwd_groundsation_request(self, ground_station_request):
    """
-   Event: On receive of a ground station request for another school's ground
-      station from our own server (mission)
+   Event: On receive of a ground_station request packet for another school's
+      ground station from our own server (mission)
 
-   Forwards this schedule to corresponding servers (policy)
+   Forwards this groundstation request packet to corresponding servers (policy)
 
    Args:
       self: maybe a policy server is an obejct with a list of all servers
@@ -92,16 +93,58 @@ def fwd_groundsation_request(self, ground_station_request):
       the servers (policy) for communication.
 
       ground_station_request: A ground station request packet indicating what
-         ground station a server (mission) wants scheduled time with
+         ground station a server (mission) wants scheduled time with (JSON obj)
 
    Returns:
    """
 
    # tell Purdue's (or some school) policy server that I want this schedule
+   authority_policy_server = ground_station_request['authority_policy_server']
 
-def sched_groundstation_request(self, ground_station_request):
+   if authority_policy_server in self.policy_servers:
+      self.authority_policy_server.send(ground_station_request)
+   else:
+      print("ERROR: authority polic server is not in our list of servers")
+
+   return
+
+def request_comparator(req1, req2):
+   school_priority = {
+      'Cal Poly': 1,
+      'Purdue': 2,
+      'Berkeley': 3,
+      'Stanford': 3,
+   }
+
+   return school_priority[req1['school']] - school_priority[req2['school']]
+
+def extract_request_source(self, ground_station_request):
+   # what we will call it: the information we want to extract from packet
+   relevant_fields = {
+      'dest_policy_server': 'authority_policy_server',
+      'dest_mission_server': 'mission_server',
+      'groundstation': 'groundstation'
+   }
+
+   extracted_info = []
+
+   # add our own fields
+   extracted_info.append(
+      {'authority_policy_server': self.id}
+   )
+
+   for name, relevant_field in relevant_fields.items():
+      extracted_info.append(
+         {name: ground_station_request[relevant_field]}
+      )
+
+   return extracted_info
+
+
+def sched_groundstation_request(self, groundstation_request):
    """
-   Event: on recieve of requests for a server's (policy) our own groundstations
+   Event: on recieve of requests from another server's (policy) for our own
+   groundstations
 
    Uses the comparator(or something) that the policy server uses to determine
    how much time the requesting server (mission) gets with the groundstation
@@ -113,6 +156,22 @@ def sched_groundstation_request(self, ground_station_request):
 
    Returns:
    """
+   requested_gs = self.groundstations[groundstation_request['groundstation']]
+   # List of dictionaries so that we can pass to a fucntion to create a json
+   # packet easily from json dumps, will contain destination (requester) and
+   # source (us)
+   packet = self.extract_request_source(groundstation_request)
+
+   for time_range in groundstation_request['time_ranges']:
+      # actual_time_range - maybe we cant' fulfill the whole slot, but a subset
+      valid_request, actual_time_range = requested_gs.request_time_slot(time_range)
+      packet.append({actual_time_range : valid_request})
+
+      if actual_time_range != time_range:
+         denied_time_range = time_range - actual_time_range
+         packet.append({denied_time_range: False})
+
+   self.policy_servers[groundstation_request['authority_policy_server']].send(packet)
 
 def control_groundstation(self):
    """
