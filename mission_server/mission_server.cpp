@@ -49,6 +49,7 @@ void MissionSocket::parse_gs_list(Value& gs_list)
          }
          else{
             //invalid, ignore
+            printf("Parsed GS element %i is invalid", i);
          }
    }
 
@@ -217,6 +218,7 @@ int MissionSocket::queue_withdrawl_request(int reqID)
    return tr.reqID;
 }
 
+//add a callback to send_time_request at certain time
 //encodes and sends off all queued time requests
 //returns number of requests to be sent, does not send immediately, uses select loop
 int MissionSocket::send_time_request()

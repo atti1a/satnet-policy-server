@@ -9,6 +9,8 @@
 #include "rapidjson/error/en.h"
 using namespace rapidjson;
 
+#define MAX_PORT 65535
+
 typedef void (*response_cb)(int reqID, bool accepted);
 typedef void (*cancel_cb)(int reqID);
 typedef void (*gs_update_cb)(std::vector<struct GroundStationInfo>& gs_list);
