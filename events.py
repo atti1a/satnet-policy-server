@@ -52,9 +52,9 @@ def relay_stripped_groundstation_metadata(self, groundstation_metadata):
       # For mission_serves, you can have a different strip function, since you might
       # be willing to share more data with you rown mission servers vs. other
       # policy servers
-      self.mission_server.send(stripped_groundstation_metadata)
+      mission_server.send(stripped_groundstation_metadata)
    for policy_server in self.policy_servers:
-      self.policy_server.send(stripped_groundstation_metadata)
+      policy_server.send(stripped_groundstation_metadata)
 
    return
 
@@ -173,7 +173,7 @@ def sched_groundstation_request(self, groundstation_request):
 
    self.policy_servers[groundstation_request['authority_policy_server']].send(packet)
 
-def control_groundstation(self):
+def control_groundstation(self, groundstation, time_range):
    """
    Event: On recieve time notification from our groundstation_schedules
 
@@ -192,3 +192,4 @@ def control_groundstation(self):
 
    Returns: Nothing
    """
+   self.groundstations[groundstation].send(time_range)
