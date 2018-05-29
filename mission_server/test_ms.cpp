@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     if(argc == 1){
         printf("Not processing the rest of the commandline");
     }
-    else if(argc != 4){
+    else if(argc != 5){
         printf("Usage: ms <local-addr> <local-port> <remote-server> <remote-port>\n");
         exit(1);
     }
