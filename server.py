@@ -1,7 +1,6 @@
 from __future__ import print_function
 
-import asyncore, json, logging, socket
-import Queue
+import asyncore, asynchat, enum, json, logging, socket
 from ConfigParser import ConfigParser
 
 class PolicyServer(asyncore.dispatcher):
@@ -31,19 +30,70 @@ class PolicyServer(asyncore.dispatcher):
 	self.logger.debug('binding to %s', self.address)
 	self.listen(5)
 
-class GenericHandler(asyncore.dispatcher):
+class GenericHandler(asynchat.async_chat):
 
     def __init__(self, sock):
-	asyncore.dispatcher.__init__(self, sock=sock)
+	asynchat.async_chat.__init__(self, sock=sock)
 
 	self.logger = logging.getLogger(self.__class__.__name__)
 
-        self.logger.debug('Here is a %s, but it does nothing' % self.__class__.__name__)
-        self.close()
-
+class JsonProtocolType(enum.Enum):
+    INIT    = 0
+    TR      = 1
+    RESP    = 2
+    GS      = 3
+    CANCEL  = 4
 
 class JsonHandler(GenericHandler):
-    pass
+
+    def __init__(self, sock):
+        GenericHandler.__init__(self, sock)
+
+        self.buffer = []
+        self.set_terminator('\n')
+
+    def collect_incoming_data(self, data):
+        self.logger.debug('collect_incoming_data() -> (%d bytes)\n"""%s"""',
+                          len(data),
+                          data)
+        self.buffer.append(data)
+
+    def found_terminator(self):
+        msg = ''.join(self.buffer)
+        self.buffer = []
+
+        try:
+            json_dict = json.loads(msg)
+        except ValueError as e:
+            self.logger.error("Failed to parse JSON message")
+            self.logger.debug(str(e))
+            self.logger.debug(msg)
+            self.close()
+            return
+
+        try:
+            message_type = JsonProtocolType[json_dict['type']]
+        except KeyError as e:
+            self.logger.error("Invalid message type")
+            self.logger.debug(str(e))
+            self.logger.debug(msg)
+            self.close()
+            return
+
+        data_field = str(message_type.name).lower() + "List"
+
+        try:
+            data = json_dict[data_field]
+        except KeyError as e:
+            self.logger.error("Could not get data field for message")
+            self.logger.debug(str(e))
+            self.logger.debug(msg)
+            self.close()
+            return
+
+        self.logger.debug('succesfully parsed json\n"""%s"""\n"""%s"""',
+                          message_type,
+                          data_field)
 
 
 class LcmHandler(GenericHandler):
@@ -78,7 +128,8 @@ def main():
     config = ConfigParser()
     config.read('config.ini')
 
-    logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
+    logging.basicConfig(level=logging.DEBUG, 
+            format='%(name)s: %(levelname)s: %(message)s')
 
     JsonPolicyServer(config)
     LcmPolicyServer(config)
