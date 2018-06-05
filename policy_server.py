@@ -28,6 +28,9 @@ class Schedule(object):
 
       Returns: true if there is a conflict in the two schedules, false if not
       """
+      # There's no conflict if its on another ground station
+      if self.gs_id != sched.ms_id:
+         return False
 
       ends_between = self.start <= sched.end and sched.end <= self.end
       starts_between = self.start <= sched.end and sched.end <= self.end
@@ -266,4 +269,8 @@ class PS(object):
       pass
 
    def handle_response(self):
+      pass
+
+   def init(self):
+      # need to give groundstation a name
       pass
