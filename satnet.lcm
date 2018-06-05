@@ -1,0 +1,238 @@
+package satnet;
+
+struct rpc_header
+{
+    int32_t rpc_number;
+    int32_t seq_number;
+    int32_t resp_number;
+    int32_t params_length;
+    boolean is_response;
+}
+
+struct gs_info_params
+{
+    string ham_callsign;
+    string name;
+    string description;
+    double latitude;
+    double longitude;
+    boolean can_track;
+    double ant_gain, rf_output_power;
+}
+
+struct gs_tracking_params
+{
+    gs_info_params gs;
+    boolean auto_track;
+    string tracking_satellite;
+}
+
+struct tle_track_params
+{
+    string name;
+    string tle_line1;
+    string tle_line2;
+    int32_t track_offset;
+}
+
+struct passive_satellite_params
+{
+    string name;
+}
+
+struct rotor_manual_params
+{
+    int16_t az;
+    int16_t el;
+    int32_t doppler_correction;
+}
+
+struct set_rf_params
+{
+    boolean use_for_tx;
+    boolean use_for_rx;
+    int16_t mode;
+    int32_t baudrate;
+    string modulation;
+    string encoding;
+    int32_t frequency;
+    double  rf_h_val;
+    int32_t fec;
+    int16_t l1_framing;
+    int16_t l1_checksum;
+}
+
+struct gs_status
+{
+    int64_t time;
+    int32_t rx_bytes;
+    int32_t rx_packets;
+    int32_t tx_bytes;
+    int32_t tx_packets;
+    int32_t drop_count;
+    int32_t digipeat_cnt;
+    int32_t rej_digipeat_cnt;
+    int16_t az;
+    int16_t el;
+    double comp_az;
+    double comp_el;
+    double comp_range;
+    double comp_lat;
+    double comp_long;
+    double deltaV;
+    int32_t rx_freq, tx_freq;
+    int32_t comp_rx_freq, comp_tx_freq;
+    boolean tnc_online, rotors_online, radio_online;
+    int64_t last_tnc_heartbeat, last_rotor_heartbeat, last_radio_heartbeat;
+}
+
+struct gs_status_request
+{
+    boolean repeating;
+    int32_t repeatSecs;
+}
+
+struct packet_data
+{
+    int32_t secs;
+    int32_t us;
+    int16_t az;
+    int16_t el;
+    int32_t range;
+    int16_t rssi;
+    int32_t length;
+    byte data[length];
+}
+
+struct ipv4_data
+{
+    int32_t length;
+    byte data[length];
+}
+
+struct echo_data
+{
+   string str;
+}
+
+struct client_type
+{
+   int32_t type;
+   string mission_id;
+   boolean readonly;
+   int32_t priority;
+}
+
+struct server_info
+{
+    string server_name;
+    int32_t server_port;
+    string mission_name;
+}
+
+struct satellite_info
+{
+    string name;
+    string description;
+    string tleUrl;
+    string tleName;
+    int32_t kissTcpPort;
+    string ax25_callsign;
+    int8_t ax25_ssid;
+    int32_t ip_addr;
+    string l2_header_type;
+    string l3_header_type;
+    set_rf_params rxParams;
+    set_rf_params txParams;
+    int32_t tracking_priority;
+    string mission_server;
+    int32_t mission_server_port;
+    boolean tracking;
+    tle_track_params tle;
+}
+
+struct satellite_info_list
+{
+    int32_t length;
+    satellite_info info[length];
+}
+
+struct submission_data
+{
+    string callsign;
+    string name;
+    string stationName;
+    double latitude;
+    double longitude;
+    boolean liveCapture;
+    int32_t length;
+    byte data[length];
+}
+
+struct parsed_data
+{
+   string error;
+   string parsed;
+   string title;
+}
+
+struct comm_stats
+{
+    int64_t pktCnt;
+    int64_t primaryPktCnt;
+    int64_t secondaryPktCnt;
+    int64_t byteCnt;
+    int64_t primaryByteCnt;
+    int64_t secondaryByteCnt;
+    int64_t txPktCnt;
+    int64_t txByteCnt;
+}
+
+struct comm_stats_request
+{
+    boolean repeating;
+    int32_t repeatSecs;
+}
+
+struct satellite_settings
+{
+    string l2_header_type;
+    string l3_header_type;
+}
+
+struct radio_mode
+{
+    boolean rx, tx;
+}
+
+struct satellite_tracking_req
+{
+    string name;
+    boolean tracking;
+}
+
+struct gs_tracking_req
+{
+    string name;
+    boolean auto_track;
+    string fixed_track;
+}
+
+struct pf_connection_req
+{
+    int32_t id;
+    int32_t port;
+}
+
+struct pf_connection_resp
+{
+    int32_t id;
+    int32_t error;
+}
+
+struct pf_connection_data
+{
+    int32_t id;
+    int32_t len;
+    byte data[len];
+}
