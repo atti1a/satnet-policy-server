@@ -70,16 +70,18 @@ class PS(object):
 
       # create stripped down metadata
       stripped_metadata = {}
+      # NOTE i think we need the authority psID for this too if gsIDs aren't
+      # unique globally
       required_fields_in_stripped_metadata = {
-         'location',
-         'authority_ps',
-         'gs_id'
+         'gsID',
+         'lat',
+         'long'
       }
 
       for required_field in required_fields_in_stripped_metadata:
          stripped_metadata[required_field] = gs_metadata[required_field]
 
-      return json.dumps(stripped_metadata)
+      return stripped_metadata
 
    def relay_stripped_gs_metadata(self, gs_metadata):
       """
@@ -162,7 +164,7 @@ class PS(object):
 
       conflicting_schedules = filter(request.has_conflict, self.schedules)
 
-      # If we have filtered out conflicting schedules, we have a conflict
+      # If we able to acquire conflicting schedules, we have a conflict
       if conflicting_schedules:
          lower_priority = lambda sched: self.has_priority(sched.ms_id, ms_id)
          lower_priority_scheds = filter(lower_priority, conflicting_schedules)
@@ -224,15 +226,23 @@ class PS(object):
             responses += resp_list
             cancels += canc_list
 
-      # requests for other groundstations
+      # requests for other groundstations, we also filter out requests that we
+      # can already fulfill with our own groundstations before sending it out,
+      # we can do more filtering if necessary
       is_not_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
       requests_for_other_gs = filter(is_not_our_gs, gs_requests)
       filtered_requests_for_other_gs = \
          filter(self.already_scheduled_with_own_gs, requests_for_other_gs)
 
-      return [('response', json.dumps(responses)),
-              ('ms', json.dumps(cancels)),
-              ('fwd', json.dumps(filtered_requests_for_other_gs))]
+# NOTE ms means forward to specific mission server, so i expect the network side
+# to loop through how should we do this
+# NOTE i propose we isntead of tuples i return triples for forwards, (send, field, packets)
+# for example you send a cancel packet,  you specify (send, 'msID', packets)
+# so when I loop through the packets in packet, the network side can just look up
+# the field i specify for who to communicate with
+      return [('response', responses),
+              ('ms', cancels),
+              ('fwd', filtered_requests_for_other_gs)]
 
    def control_gs(self, authority_ps, ms, time_range):
       """
@@ -259,21 +269,21 @@ class PS(object):
          ground station to connect to he corresponding server (mission)
       """
 
-      connection_packet = json.dumps({
+      connection_packet = {
          'authority_ps' : authority_ps,
          'ms' : ms,
          'time_range': time_range
-      })
+      }
 
       return ("gs", connection_packet)
 
    def fwd_cancel(self, cancel_packets):
-      return ("fwd", json.dumps(cancel_packets))
+      return ("fwd", cancel_packets)
 
    def handle_cancel(self, cancel_packets):
-      """does the rquested cancels
+      """does the requested cancels
       """
-      cancel_forwards = []
+      cancel_forwards = {}
       for cancel_packet in cancel_packets:
          # Cancel the schedule by removing it from the policy servers schedule
          # But also get it so we can get the msID
@@ -282,12 +292,14 @@ class PS(object):
          #Forward cancel to corresponding mission server
          msID = canceled_sched.msID
          reqID = canceled_sched.reqID
-         cancel_forwards.append({'msID': msID, 'reqID': reqID})
+         # NOTE i think we shoudl add an msID field to cancel packets
+         cancel_forwards[msID] = {'msID': msID, 'reqID': reqID}
 
+# NOTE there is a unique ms id right? or do i need ot include gs here
       return ('ms', cancel_forwards)
 
-   def handle_response(self):
-      pass
+   def handle_response(self, response_packet):
+      return ('fwd', response_packet)
 
    def init(self):
       # need to give groundstation a name
