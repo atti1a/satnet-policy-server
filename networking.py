@@ -32,10 +32,19 @@ class PolicyServer(asyncore.dispatcher):
 
 class GenericHandler(asynchat.async_chat):
 
-    def __init__(self, sock):
+    def __init__(self, sock, terminator):
 	asynchat.async_chat.__init__(self, sock=sock)
 
 	self.logger = logging.getLogger(self.__class__.__name__)
+        self.buffer = []
+        self.set_terminator(terminator)
+
+    def collect_incoming_data(self, data):
+        self.logger.debug('collect_incoming_data() -> (%d bytes)\n"""%s"""',
+                          len(data),
+                          data)
+        self.buffer.append(data)
+
 
 class JsonProtocolType(enum.Enum):
     INIT    = 0
@@ -47,16 +56,13 @@ class JsonProtocolType(enum.Enum):
 class JsonHandler(GenericHandler):
 
     def __init__(self, sock):
-        GenericHandler.__init__(self, sock)
+        GenericHandler.__init__(self, sock, '\n')
 
-        self.buffer = []
-        self.set_terminator('\n')
-
-    def collect_incoming_data(self, data):
-        self.logger.debug('collect_incoming_data() -> (%d bytes)\n"""%s"""',
-                          len(data),
-                          data)
-        self.buffer.append(data)
+    def _log_failure(self, e, msg):
+        self.logger.error(msg)
+        self.logger.debug(str(e))
+        self.logger.debug(msg)
+        self.close()
 
     def found_terminator(self):
         msg = ''.join(self.buffer)
@@ -65,19 +71,13 @@ class JsonHandler(GenericHandler):
         try:
             json_dict = json.loads(msg)
         except ValueError as e:
-            self.logger.error("Failed to parse JSON message")
-            self.logger.debug(str(e))
-            self.logger.debug(msg)
-            self.close()
+            self._log_failure("Failed to parse JSON message")
             return
 
         try:
             message_type = JsonProtocolType[json_dict['type']]
         except KeyError as e:
-            self.logger.error("Invalid message type")
-            self.logger.debug(str(e))
-            self.logger.debug(msg)
-            self.close()
+            self._log_failure("Invalid message type")
             return
 
         data_field = str(message_type.name).lower() + "List"
@@ -85,10 +85,7 @@ class JsonHandler(GenericHandler):
         try:
             data = json_dict[data_field]
         except KeyError as e:
-            self.logger.error("Could not get data field for message")
-            self.logger.debug(str(e))
-            self.logger.debug(msg)
-            self.close()
+            self._log_failure("Could not get data field for message")
             return
 
         self.logger.debug('succesfully parsed json\n"""%s"""\n"""%s"""',
