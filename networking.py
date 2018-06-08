@@ -211,7 +211,8 @@ class JsonHandler(GenericHandler):
         self.peer = Peer.MissionServer
         self.ms_handler_roster[data['msID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ms
-        return self.ps_logic.ms_init(data)
+        self.ps_logic.ms_init(data)
+        return []
 
 
 class LcmHandler(GenericHandler):
