@@ -334,6 +334,7 @@ class PS(object):
 
    def control_gs_end(self, request):
       #TODO remove this completed time request from schedules
+      pass
 
    def fwd_cancel(self, cancel_packets):
       return {cancel_packets['msID']: cancel_packets}
