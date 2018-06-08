@@ -104,7 +104,11 @@ class JsonHandler(GenericHandler):
         for (dst, data) in resps:
             self._send_data(dst, data)
 
-        return
+	return
+
+
+    def push_json(self, data):
+        self.push(json.dumps(data) + '\n')
 
 
     def _send_ps_metadata(self):
@@ -112,7 +116,8 @@ class JsonHandler(GenericHandler):
                'psID': self.config.get('server', 'id'),
                'name': self.config.get('server', 'name')}
 
-        self.push(json.dumps(msg))
+        self.logger.debug(msg)
+        self.push_json(msg)
 
 
     def _send_data(self, dst, data):
@@ -232,18 +237,17 @@ class LcmPolicyServer(PolicyServer):
 def gmtTime():
     return time.gmtime()
 
-def asyncLoop(t):
-    asyncore.loop(timeout=t)
-
 def main():
     config = ConfigParser()
     config.read(sys.argv[1])
 
-    s = sched.scheduler(gmtTime, asyncLoop)
+    s = sched.scheduler(gmtTime, time.sleep)
     ps_logic = PS(s)
 
     logging.basicConfig(level=logging.DEBUG, 
             format='%(name)s: %(levelname)s: %(message)s')
+
+    lg = logging.getLogger('Networking')
 
     JsonPolicyServer(config, ps_logic)
     LcmPolicyServer(config, ps_logic)
@@ -255,14 +259,13 @@ def main():
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((ip, port))
             jh = JsonHandler(sock, config, ps_logic)
-            jh.logger.debug("Connected to %s:%d", ip, port)
+            lg.debug("Connected to %s:%d", ip, port)
         except Exception as e:
-            print(e)
-            print("Failed to connect to %s:%d" % (ip, port))
+            lg.debug("Peer %s:%d is down" % (ip, port))
+            lg.debug(e)
             continue
 
-    while True:
-        s.run()
+    asyncore.loop()
 
 if __name__ == '__main__':
     main()
