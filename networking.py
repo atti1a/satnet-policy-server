@@ -88,7 +88,6 @@ class JsonHandler(GenericHandler):
 
         self._handle_by_msg_type = self._handle_by_msg_type_init
 
-        self._send_ps_metadata()
 
 
     def found_terminator(self):
@@ -112,11 +111,12 @@ class JsonHandler(GenericHandler):
         self.push(json.dumps(data) + '\n')
 
 
-    def _send_ps_metadata(self):
+    def send_ps_metadata(self):
         msg = {'type': JsonProtocolType.PS_INIT.name, 
                'psID': self.config.get('server', 'id'),
                'name': self.config.get('server', 'name')}
 
+        self.logger.debug("Personal metadata to send")
         self.logger.debug(msg)
         self.push_json(msg)
 
@@ -166,6 +166,10 @@ class JsonHandler(GenericHandler):
             return self.ps_logic.fwd_stripped_gs_metadata(data_field)
         elif message_type == JsonProtocolType.CANCEL:
             return []
+        elif message_type == JsonProtocolType.PS_INIT:
+            return []
+        else:
+            raise ValueError('No handler for %s' % message_type)
 
 
     def _handle_by_msg_type_ms(self, message_type, data):
@@ -175,6 +179,10 @@ class JsonHandler(GenericHandler):
             return []
         elif message_type == JsonProtocolType.CANCEL:
             return []
+        elif message_type == JsonProtocolType.MS_INIT:
+            return []
+        else:
+            raise ValueError('No handler for %s' % message_type)
 
 
     def _handle_PS_INIT(self, data):
@@ -183,11 +191,12 @@ class JsonHandler(GenericHandler):
         self.peer = Peer.PolicyServer
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
+        self.send_ps_metadata()
 
 
     def _handle_MS_INIT(self, data):
 
-        psk = config.get('security', 'psk')
+        psk = self.config.get('security', 'psk')
         if psk != data['psk']:
             self.logger.error('Bad psk, killing mission server connection')
             self.close()
@@ -265,6 +274,7 @@ def main():
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((ip, port))
             jh = JsonHandler(sock, config, ps_logic)
+            jh.send_ps_metadata()
             lg.debug("Connected to %s:%d", ip, port)
         except Exception as e:
             lg.warning("Peer %s:%d is down" % (ip, port))
