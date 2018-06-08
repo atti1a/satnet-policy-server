@@ -77,7 +77,7 @@ int request_cb(void *arg){
 
 void add_time(MissionSocket& ms, time_t start, time_t end, int gsID)
 {
-    int id = ms.queue_time_request(start, end, gsID);
+    int id = ms.queue_time_reqest(start, end, gsID);
     struct TR tr = {id, gsID, start, end, SENT};
     time_requests.insert(std::pair<int, struct TR> (id, tr));
 }
@@ -125,7 +125,7 @@ void connect_to_policy_server(int ms_fd, std::string remote_server, int remote_p
         printf("Invalid remote server port: %d", remote_port);
         exit(1);
     }
-    remote_addr.sin_port = htons(remote_port); //bind to any port
+    remote_addr.sin_port = htons(remote_port);
     if(connect(ms_fd, (sockaddr *)&remote_addr, sizeof(remote_addr)) == -1){
         perror("Connect to remote server failed");
         exit(1);
@@ -135,31 +135,29 @@ void connect_to_policy_server(int ms_fd, std::string remote_server, int remote_p
 
 int main(int argc, char **argv)
 {
-    int global_id, local_port, ms_fd, remote_port;
-    std::string shared_secret, local_addr, local_name, remote_server;
-    if(argc != 8){
-        printf("Usage: ms <name> <id> <local-addr> <local-port> <remote-server> <remote-port> <shared-secret>\n");
+    int global_id;
+    int ms_fd;
+    if(argc != 7){
+        printf("Usage: ms <name> <id> <local-addr> <local-port> <remote-server> <remote-port>\n");
         //id is globally unique
         exit(1);
     }
     else{
-        local_name = argv[1];
-        global_id = atoi(argv[2]);
-        local_addr = argv[3];
-        local_port = atoi(argv[4]);
-        remote_server = argv[5];
-        remote_port = atoi(argv[6]);
-
-        printf("MY LOCAL ADDR IS: %s\n", local_addr.c_str());
-        shared_secret = argv[7];
+        int local_port = atoi(argv[4]);
+        std::string local_addr = argv[3];
         //return the fd of the mission socket
         //TO DO get the local interfaces and choose from one of those
         //specify if we are connecting locally or externally
         ms_fd = bind_to_local_addr(local_addr, local_port);
+
+        global_id = atoi(argv[2]);
+
+        std::string remote_server = argv[5];
+        int remote_port = atoi(argv[6]);
         connect_to_policy_server(ms_fd, remote_server, remote_port);
     }
     
-    //was using this in place of the policy server
+    //was using this in place of the remote policy
     //int fd = open("ack_test.json", O_RDWR | O_APPEND);
     //int fd = open("ack_test.json", O_RDONLY);
     //if(fd < 0){
@@ -169,18 +167,13 @@ int main(int argc, char **argv)
 
     Process *proc = new Process(NULL, WD_DISABLED);
 
-    MissionSocket ms = MissionSocket(ms_fd, proc, &ack_cb, &gs_cb, &canc_cb, &wd_cb);
-    ms.set_comm_vars(global_id, shared_secret, local_addr, local_port, local_name);
-    ms.send_init();
+    MissionSocket ms = MissionSocket(ms_fd, global_id, proc, &ack_cb, &gs_cb, &canc_cb, &wd_cb);
 
     //TO DO allow specification of time to schedule sending requests
     EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(60 * 1000),&request_cb, (void *)&ms);
 
     add_time(ms, 12, 13, 101);
-    //add_time(ms, 23, 26, 102);
-    //add_time(ms, 45, 55, 101);
-    //ms.queue_withdrawl_request(2);
-    //ms.send_time_request();
+    ms.send_time_request();
 
     proc->event_manager()->EventLoop();
 

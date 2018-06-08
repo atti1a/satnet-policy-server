@@ -1,6 +1,6 @@
 //initialization (MS->PS)
 {
-    "type": "INIT", "msID": 12, "name": "myMissionServer"
+    "type": "MS_INIT", "msID": 12, "name": "myMissionServer", "ip":"129.65.1.1", "port":19201, "psk":"Armstrong5ever"
 }
 
 //time request (TR) (MS->PS)

@@ -36,18 +36,18 @@ struct GroundStationInfo
 class MissionSocket
 {
    public:
-   MissionSocket(int socketFD, int gid, Process *proc, response_cb resp_cb, 
+   MissionSocket(int socketFD, Process *proc, response_cb resp_cb, 
       gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb);
    //sends all queued time requests, returns number of requests sent
    int send_time_request();
    //queues a time request to be sent to policy server (send using send_time_request())
    //returns a request ID that should be saved by the user and will be returned in the callback once a response is received
-   int queue_time_reqest(time_t start, time_t end, int gsID);
+   int queue_time_request(time_t start, time_t end, int gsID);
    //same as queue_time_request() except it withdrawls a given time
    //returns back the request ID
    int queue_withdrawl_request(int reqID);
-
-
+   void set_comm_vars(int gid, std::string ss, std::string la, int lp, std::string ln);
+   void send_init();
    
 
 
@@ -72,8 +72,15 @@ class MissionSocket
 
    int nextReqID;
 
-   //vars for sending data
+   //comms vars
+   std::string name;
+   std::string shared_secret;
    int global_id;
+   std::string local_addr;
+   int local_port;
+
+
+   //vars for sending data
    char send_evt;
    char *send_buf;
    int send_buf_pos;

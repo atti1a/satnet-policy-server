@@ -18,6 +18,45 @@ using namespace rapidjson;
 * parse gs info
 * make gs info available to user
 */
+//constructor
+MissionSocket::MissionSocket(int socketFD, Process *proc, response_cb resp_cb, 
+      gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb)
+{
+   this->proc = proc;
+   this->socketFD = socketFD;
+   this->resp_cb = resp_cb;
+   this->gs_cb = gs_cb;
+   this->canc_cb = canc_cb;
+   this->wd_cb = wd_cb;
+   EVT_fd_add(proc->event_manager()->state(), socketFD, EVENT_FD_READ, &read_cb, this);
+   nextReqID = 1;
+
+   //send buffer management
+   send_evt = 0;
+   send_buf_pos = 0;
+   send_mess_len = 0;
+   send_buf_size = SND_BUF_SIZE;
+   send_buf = (char *)malloc(send_buf_size);
+   memset(send_buf, 0, send_buf_size);
+
+   //receive buffer management
+   recv_buf = (char *)malloc(RCV_BUF_SIZE);
+   memset(recv_buf, 0, RCV_BUF_SIZE);
+   recv_buf_pos = 0;
+}
+
+
+//set all communication vars needed to send json
+void MissionSocket::set_comm_vars(int gid, std::string ss, std::string la, int lp, std::string ln){
+   //comms vars
+   shared_secret = ss;
+   global_id = gid;
+   local_addr = la;
+   printf("save local addr as: %s\n", la.c_str());
+   local_port = lp;
+   name = ln;
+}
+
 
 void MissionSocket::parse_resp(Value& resp_list)
 {
@@ -96,6 +135,9 @@ int MissionSocket::attempt_parse(char *buff)
       }
       parse_resp(d["respList"]);
    }
+   if(d["type"] == "PS_INIT"){
+      printf("Got a PS_INIT packet\n");
+   }
    //expect to see a vector of all groundstations that are available
    else if(d["type"] == "GS"){
       printf("parsing gs\n");
@@ -171,40 +213,9 @@ int MissionSocket::write_cb(int fd, char type, void *arg)
    return EVENT_KEEP;
 }
 
-//constructor
-MissionSocket::MissionSocket(int socketFD, int gid, Process *proc, response_cb resp_cb, 
-      gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb)
-{
-   this->proc = proc;
-   this->socketFD = socketFD;
-   this->resp_cb = resp_cb;
-   this->gs_cb = gs_cb;
-   this->canc_cb = canc_cb;
-   this->wd_cb = wd_cb;
-   EVT_fd_add(proc->event_manager()->state(), socketFD, EVENT_FD_READ, &read_cb, this);
-   nextReqID = 1;
-
-   //send buffer management
-   send_evt = 0;
-   send_buf_pos = 0;
-   send_mess_len = 0;
-   send_buf_size = SND_BUF_SIZE;
-   send_buf = (char *)malloc(send_buf_size);
-   memset(send_buf, 0, send_buf_size);
-
-   //receive buffer management
-   recv_buf = (char *)malloc(RCV_BUF_SIZE);
-   memset(recv_buf, 0, RCV_BUF_SIZE);
-   recv_buf_pos = 0;
-
-   //global id
-   global_id = gid;
-   
-}
-
 //adds a time request to the block of time requests to be sent
 //returns 0 on success
-int MissionSocket::queue_time_reqest(time_t start, time_t end, int gsID)
+int MissionSocket::queue_time_request(time_t start, time_t end, int gsID)
 {
    struct TimeRequest tr = {nextReqID, gsID, start, end, false};
    nextReqID += 1;
@@ -221,6 +232,58 @@ int MissionSocket::queue_withdrawl_request(int reqID)
    queued_requests.push_back(tr);
    return tr.reqID;
 }
+
+//add in the send init request
+void MissionSocket::send_init()
+{
+      printf("Sending initialization to policy server\n");
+      StringBuffer sb;
+      Writer<StringBuffer> writer(sb);
+
+      writer.StartObject();
+
+      writer.String("type");
+      writer.String("MS_INIT");
+
+      writer.String("msID");
+      writer.Int(global_id);
+
+      writer.String("name");
+      writer.String(name.c_str());
+
+      writer.String("ip");
+      writer.String(local_addr.c_str());
+      writer.String("port");
+      writer.Int(local_port);
+      writer.String("psk");
+      writer.String(shared_secret.c_str());
+
+      writer.EndObject();
+
+      //copy over to send buffer
+      send_mess_len += sb.GetSize() + 1; //add in space for newline
+      if (send_mess_len + send_buf_pos > send_buf_size)
+      {
+            //first try shifting buffer to make room
+            memcpy(send_buf, send_buf + send_buf_pos, send_buf_size - send_buf_pos);
+            send_buf_pos = 0;
+      }
+      if (send_mess_len + send_buf_pos > send_buf_size)
+      {
+            //realloc more space
+            send_buf_size += sb.GetSize() + 1; //plus newline
+            send_buf = (char *)realloc(send_buf, send_buf_size);
+      }
+      memcpy(send_buf + send_buf_pos, sb.GetString(), sb.GetSize());
+      memcpy(send_buf + send_buf_pos + sb.GetSize(), "\n", 1); //tack on the newline as a terminator
+
+      if (send_evt == 0)
+      {
+            send_evt = EVT_fd_add(proc->event_manager()->state(), socketFD, EVENT_FD_WRITE, &write_cb, this);
+      }
+}
+
+
 
 //add a callback to send_time_request at certain time
 //encodes and sends off all queued time requests
@@ -270,7 +333,7 @@ int MissionSocket::send_time_request()
    writer.EndObject();
 
    //copy over to send buffer
-   send_mess_len += sb.GetSize();
+   send_mess_len += sb.GetSize() + 1; //add in space for newline
    if(send_mess_len + send_buf_pos > send_buf_size){
       //first try shifting buffer to make room
       memcpy(send_buf, send_buf + send_buf_pos, send_buf_size - send_buf_pos);
@@ -278,10 +341,11 @@ int MissionSocket::send_time_request()
    }
    if(send_mess_len + send_buf_pos > send_buf_size){
       //realloc more space
-      send_buf_size += sb.GetSize();
+      send_buf_size += sb.GetSize() + 1; //plus newline
       send_buf = (char *)realloc(send_buf, send_buf_size);
    }
    memcpy(send_buf + send_buf_pos, sb.GetString(), sb.GetSize());
+   memcpy(send_buf + send_buf_pos + sb.GetSize(), "\n", 1); //tack on the newline as a terminator
 
    if(send_evt == 0){
       send_evt = EVT_fd_add(proc->event_manager()->state(), socketFD, EVENT_FD_WRITE, &write_cb, this);
