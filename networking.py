@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import asyncore, asynchat, enum, json, logging, socket
+import sched, time
 from ConfigParser import ConfigParser
 from policy_server import PS
 
@@ -218,11 +219,18 @@ class LcmPolicyServer(PolicyServer):
         self._construct_socket((ip, port))
 
 
+def gmtTime():
+    return time.gmtime()
+
+def asyncLoop(t):
+    asyncore.loop(timeout=t)
+
 def main():
     config = ConfigParser()
     config.read('config.ini')
 
-    ps_logic = PS()
+    s = sched.scheduler(gmtTime, asyncLoop)
+    ps_logic = PS(s)
 
     logging.basicConfig(level=logging.DEBUG, 
             format='%(name)s: %(levelname)s: %(message)s')
@@ -230,7 +238,8 @@ def main():
     JsonPolicyServer(config, ps_logic)
     LcmPolicyServer(config, ps_logic)
 
-    asyncore.loop()
+    while True:
+        s.run()
 
 if __name__ == '__main__':
     main()
