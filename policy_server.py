@@ -193,7 +193,7 @@ class PS(object):
 
       #check for conflicts
       conflicting_schedules = {}
-      for reqID, sched in self.schedules.iteritems():
+      for reqID, sched in self.schedules.items():
          if request.has_conflict(sched):
             conflicting_schedules[reqID] = sched
 
@@ -201,8 +201,8 @@ class PS(object):
       if len(conflicting_schedules) > 0:
          #build list of conflicts that are lower priority that the proposed request
          lower_priority_scheds = {}
-         for reqID, conflict in conflicting_schedules.iteritems():
-            if self.has_priority(conflict.ms_id, ms_id):
+         for reqID, conflict in conflicting_schedules.items():
+            if self.has_priority(conflict.reqID, reqID):
                lower_priority_scheds[reqID] = conflict
 
          # If we have a conflict, but have priority over all those conflicts
@@ -218,7 +218,7 @@ class PS(object):
 
       if acking:
          request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs_start, (request))
-         schedules[gs_request['reqID']] = request
+         self.schedules[gs_request['reqID']] = request
 
       ack = {'reqID': gs_request['reqID'], 'ack': acking, 'wd': False}
       responses[gs_request['reqID']].append(ack)
@@ -232,7 +232,7 @@ class PS(object):
       # isntantiate object just so we can use the method
       request = Schedule(gs_request)
 
-      for id, schedule in self.schedules.iteritems():
+      for reqID, schedule in self.schedules.items():
          if request.has_conflict(schedule): return True
 
       return False
@@ -333,7 +333,7 @@ class PS(object):
       return ("gs", connection_packet)
 
    def control_gs_end(self, request):
-      #TODO remove this completed time request from schedules
+      # TODO remove this completed time request from schedules
       pass
 
    def fwd_cancel(self, cancel_packets):
@@ -343,7 +343,7 @@ class PS(object):
       """does the requested cancels
       """
       cancel_forwards = defaultdict(list)
-      for cancel_id, cancel_sched in cancel_packets.iteritems():
+      for cancel_id, cancel_sched in cancel_scheds.iteritems():
          # Cancel the schedule by removing it from the policy servers schedule
          # But also get it so we can get the msID
 
