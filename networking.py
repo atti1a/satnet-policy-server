@@ -150,11 +150,12 @@ class JsonHandler(GenericHandler):
 
     def _handle_by_msg_type_init(self, message_type, data):
         if message_type == JsonProtocolType.PS_INIT:
-            self._handle_PS_INIT(data)
+            return self._handle_PS_INIT(data)
         elif message_type == JsonProtocolType.MS_INIT:
-            self._handle_MS_INIT(data)
+            return self._handle_MS_INIT(data)
+        else:
+            raise ValueError('No handler for %s' % message_type)
 
-        return []
 
 
     def _handle_by_msg_type_ps(self, message_type, data):
@@ -174,7 +175,7 @@ class JsonHandler(GenericHandler):
 
     def _handle_by_msg_type_ms(self, message_type, data):
         if message_type == JsonProtocolType.TR:
-            return []
+            return self._handle_TR(self, data)
         elif message_type == JsonProtocolType.RESP:
             return []
         elif message_type == JsonProtocolType.CANCEL:
@@ -185,6 +186,10 @@ class JsonHandler(GenericHandler):
             raise ValueError('No handler for %s' % message_type)
 
 
+    def _handle_TR(self, data):
+        return self.ps_logic.handle_requests(data['trList'])
+
+
     def _handle_PS_INIT(self, data):
         self.logger.debug("Converting %s to %s", self.peer, Peer.PolicyServer)
         #TODO Pass through to event ps_init
@@ -192,6 +197,7 @@ class JsonHandler(GenericHandler):
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
         self.send_ps_metadata()
+        return []
 
 
     def _handle_MS_INIT(self, data):
@@ -202,10 +208,10 @@ class JsonHandler(GenericHandler):
             self.close()
 
         self.logger.debug("Converting %s to %s", self.peer, Peer.MissionServer)
-        self.ps_logic.ms_init(data)
         self.peer = Peer.MissionServer
         self.ms_handler_roster[data['msID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ms
+        return self.ps_logic.ms_init(data)
 
 
 class LcmHandler(GenericHandler):
