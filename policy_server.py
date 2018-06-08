@@ -57,7 +57,7 @@ def merge_dict_of_lists(d1, d2):
    """merges a dictionary that has a values of type list
       note: d1 must be a default dict type
    """
-   for k, v in d2.items():
+   for k, v in d2.iteritems():
       d1[k] += v
 
 class PS(object):
@@ -193,7 +193,7 @@ class PS(object):
 
       #check for conflicts
       conflicting_schedules = {}
-      for reqID, sched in self.schedules.items():
+      for reqID, sched in self.schedules.iteritems():
          if request.has_conflict(sched):
             conflicting_schedules[reqID] = sched
 
@@ -201,7 +201,7 @@ class PS(object):
       if len(conflicting_schedules) > 0:
          #build list of conflicts that are lower priority that the proposed request
          lower_priority_scheds = {}
-         for reqID, conflict in conflicting_schedules.items():
+         for reqID, conflict in conflicting_schedules.iteritems():
             if self.has_priority(conflict.reqID, reqID):
                lower_priority_scheds[reqID] = conflict
 
@@ -232,7 +232,7 @@ class PS(object):
       # isntantiate object just so we can use the method
       request = Schedule(gs_request)
 
-      for reqID, schedule in self.schedules.items():
+      for reqID, schedule in self.schedules.iteritems():
          if request.has_conflict(schedule): return True
 
       return False
@@ -247,7 +247,7 @@ class PS(object):
 
       packets = {}
       for packet_type, packet in list_of_packet_dicts:
-         for msg_type, packet_list in packet.items():
+         for msg_type, packet_list in packet.iteritems():
             packets[msg_type] = {'type': packet_type, list_name_mapping[packet_type]: packet_list}
 
       return packets
@@ -292,10 +292,7 @@ class PS(object):
       if cancels: combining_packets.append(('cancel', responses))
       if fwd_filtered_requests_for_other_gs: combining_packets.append(('TR', responses))
 
-      return self.format_packets([('RESP', responses),
-                                  ('cancel', cancels),
-                                  ('TR', fwd_filtered_requests_for_other_gs)])
-
+      return self.format_packets(combining_packets)
 
    #takes a Schedule object as an argument
    def control_gs_start(self, request):
