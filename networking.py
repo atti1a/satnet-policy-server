@@ -29,6 +29,7 @@ class PolicyServer(asyncore.dispatcher):
 
     def _construct_socket(self, address):
 	self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.set_reuse_addr()
 	self.bind(address)
 	self.address = self.socket.getsockname()
 	self.logger.debug('binding to %s', self.address)
