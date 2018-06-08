@@ -101,14 +101,29 @@ class JsonHandler(GenericHandler):
 
         resps = self._handle_by_msg_type(*parse_tup)
 
-        for (dst, data) in resps:
+        for dst, data in resps:
             self._send_data(dst, data)
 
 	return
 
 
-    def push_json(self, data):
+    def push_json_ps(self, data):
+        self.logger.debug("Sending json object to policy server")
+        self.logger.debug(data)
         self.push(json.dumps(data) + '\n')
+
+
+    def push_json_ms(self, data):
+        self.logger.debug("Sending json object to mission server")
+        self.logger.debug(data)
+        self.push(json.dumps(data))
+
+
+    def _send_data(self, dst, data):
+        if isinstance(dst, str):
+            raise Exception("Not yet implemented")
+        else:
+            dst.push_json(data)
 
 
     def send_ps_metadata(self):
@@ -116,13 +131,7 @@ class JsonHandler(GenericHandler):
                'psID': self.config.get('server', 'id'),
                'name': self.config.get('server', 'name')}
 
-        self.logger.debug("Personal metadata to send")
-        self.logger.debug(msg)
         self.push_json(msg)
-
-
-    def _send_data(self, dst, data):
-        self.logger.debug('Gotta send something to %s', dst)
 
 
     def _parse_message(self, msg):
@@ -187,15 +196,18 @@ class JsonHandler(GenericHandler):
 
 
     def _handle_TR(self, data):
-        return self.ps_logic.handle_requests(data['trList'])
+        self.ps_logic.handle_requests(data['trList'])
+        return []
 
 
     def _handle_PS_INIT(self, data):
+
         self.logger.debug("Converting %s to %s", self.peer, Peer.PolicyServer)
         #TODO Pass through to event ps_init
         self.peer = Peer.PolicyServer
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
+        self.push_json = self.push_json_ps
         self.send_ps_metadata()
         return []
 
@@ -211,8 +223,15 @@ class JsonHandler(GenericHandler):
         self.peer = Peer.MissionServer
         self.ms_handler_roster[data['msID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ms
-        self.ps_logic.ms_init(data)
-        return []
+        self.push_json = self.push_json_ms
+        
+        gs_data = self.ps_logic.ms_init(data)
+
+        print(gs_data)
+
+        return [(self.ms_handler_roster[msId], gsList)
+                for msId, gsList in gs_data.iteritems()]
+
 
 
 class LcmHandler(GenericHandler):

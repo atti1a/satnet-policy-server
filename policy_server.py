@@ -374,7 +374,7 @@ class PS(object):
          
       #TODO lol, hard coded groundstations for testing
       gs_list = {}
-      gs_list["msID"] = {
+      gs_list[data['msID']] = {
          "type":"GS",
          "gsList":[
             {
