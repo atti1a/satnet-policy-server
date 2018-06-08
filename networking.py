@@ -32,14 +32,25 @@ class PolicyServer(asyncore.dispatcher):
 	self.logger.debug('binding to %s', self.address)
 	self.listen(5)
 
+class Peer(enum.Enum):
+    Generic         = 0
+    Groundstaion    = 1
+    PolicyServer    = 2
+    MissionServer   = 3
+
 class GenericHandler(asynchat.async_chat):
 
-    def __init__(self, sock, ps_logic, terminator):
-	asynchat.async_chat.__init__(self, sock=sock)
+    gs_handler_roster = {}
+    ms_handler_roster = {}
+    ps_handler_roster = {}
 
-	self.logger = logging.getLogger(self.__class__.__name__)
+    def __init__(self, sock, ps_logic, terminator):
+        asynchat.async_chat.__init__(self, sock=sock)
+
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.buffer = []
         self.ps_logic = ps_logic
+        self.peer = Peer.Generic
 
         self.set_terminator(terminator)
 
@@ -57,59 +68,75 @@ class GenericHandler(asynchat.async_chat):
 
 
 class JsonProtocolType(enum.Enum):
-    INIT    = 0
-    TR      = 1
-    RESP    = 2
-    GS      = 3
-    CANCEL  = 4
+    PS_INIT     = 0
+    MS_INIT     = 1
+    TR          = 2
+    RESP        = 3
+    GS          = 4
+    CANCEL      = 5
+    ORIGIN      = 6
+    ORIGIN_RESP = 7
 
 class JsonHandler(GenericHandler):
 
     def __init__(self, sock, ps_logic):
         GenericHandler.__init__(self, sock, ps_logic, '\n')
 
-    def _parse_message(self, msg):
-        try:
-            json_dict = json.loads(msg)
-        except ValueError as e:
-            self._log_failure("Failed to parse JSON message")
-            return None
-
-        try:
-            message_type = JsonProtocolType[json_dict['type']]
-        except KeyError as e:
-            self._log_failure("Invalid message type")
-            return None
-
-        data_field = str(message_type.name).lower() + "List"
-
-        try:
-            data = json_dict[data_field]
-        except KeyError as e:
-            self._log_failure("Could not get data field for message")
-            return None
-
-        self.logger.debug('succesfully parsed json\n"""%s"""\n"""%s"""',
-                          message_type,
-                          data_field)
-
-        return message_type, data_field
+        self._handle_by_msg_type = self._handle_by_msg_type_init
 
 
     def found_terminator(self):
         msg = ''.join(self.buffer)
         self.buffer = []
 
-        data = self._parse_message(msg)
+        parse_tup = self._parse_message(msg)
 
-        if data is None:
+        if parse_tup is None:
             return
 
-        message_type, data_field = data
+        resps = self._handle_by_msg_type(*parse_tup)
 
-        if message_type == JsonProtocolType.INIT:
-            pass
-        elif message_type == JsonProtocolType.TR:
+        for (dst, data) in resps:
+            self.logger.debug('Gotta send something to %s', dst)
+
+        return
+
+
+    def _parse_message(self, msg):
+        try:
+            json_dict = json.loads(msg)
+        except ValueError as e:
+            self._log_failure(e, "Failed to parse JSON message")
+            return None
+
+        try:
+            message_type = JsonProtocolType[json_dict['type']]
+        except KeyError as e:
+            self._log_failure(e, "Invalid message type")
+            return None
+
+        data = dict(json_dict)
+        del data['type']
+
+        self.logger.debug('succesfully parsed json\n"""%s"""\n"""%s"""',
+                          message_type,
+                          data)
+
+        return message_type, data
+
+
+    def _handle_by_msg_type_init(self, message_type, data):
+        if message_type == JsonProtocolType.PS_INIT:
+            self._handle_PS_INIT(data)
+        elif message_type == JsonProtocolType.MS_INIT:
+            self._handle_MS_INIT(data)
+
+        return []
+
+
+
+    def _handle_by_msg_type_ps(self, message_type, data):
+        if message_type == JsonProtocolType.TR:
             # resps = self.ps_logic.handle_request
             pass
         elif message_type == JsonProtocolType.RESP:
@@ -119,6 +146,41 @@ class JsonHandler(GenericHandler):
             pass
         elif message_type == JsonProtocolType.CANCEL:
             pass
+
+        return []
+
+
+    def _handle_by_msg_type_ms(self, message_type, data):
+        if message_type == JsonProtocolType.TR:
+            # resps = self.ps_logic.handle_request
+            pass
+        elif message_type == JsonProtocolType.RESP:
+            pass
+        elif message_type == JsonProtocolType.CANCEL:
+            pass
+
+        return []
+
+    def _handle_PS_INIT(self, data):
+        #TODO Pass through to event ps_init
+        self.logger.debug("Converting %s to %s", self.peer, Peer.PolicyServer)
+        self.peer = Peer.PolicyServer
+        self.ps_handler_roster[data['psID']] = self
+        self._handle_by_msg_type = self._handle_by_msg_type_ps
+
+
+    def _handle_MS_INIT(self, data):
+
+        psk = config.get('security', 'psk')
+        if psk != data['psk']:
+            self.logger.error('Bad psk, killing mission server connection')
+            self.close()
+
+        #TODO Pass through to event ms_init
+        self.logger.debug("Converting %s to %s", self.peer, Peer.MissionServer)
+        self.peer = Peer.MissionServer
+        self.ms_handler_roster[data['msID']] = self
+        self._handle_by_msg_type = self._handle_by_msg_type_ms
 
 
 class LcmHandler(GenericHandler):
