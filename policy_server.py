@@ -206,7 +206,7 @@ class PS(object):
          acking = True
 
       if acking:
-         request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs, (request))   
+         request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs_start, (request))   
          schedules[gs_request['reqID']] = request
          ack = {'reqID': gs_request['reqID'], 'ack' : True, 'wd' : False}
          responses.append(ack)
@@ -272,7 +272,7 @@ class PS(object):
 
 
    #takes a Schedule object as an argument
-   def control_gs(self, request):
+   def control_gs_start(self, request):
       """
       Event: On recieve time notification from our gs_schedules
 
@@ -297,6 +297,8 @@ class PS(object):
          ground station to connect to he corresponding server (mission)
       """
 
+      #TODO check for mission_id to ip mapping
+
       #TODO ??
       connection_packet = {
          'authority_ps' : 1,
@@ -304,7 +306,13 @@ class PS(object):
          'time_range': request.start
       }
 
+      #schedule the time end event
+      request.eventID = self.scheduler.enterabs(request.end, 1, self.control_gs_end, (request))
+
       return ("gs", connection_packet)
+
+   def control_gs_end(self, request):
+      #TODO remove this completed time request from schedules
 
    def fwd_cancel(self, cancel_packets):
       return ("fwd", cancel_packets)
@@ -334,7 +342,7 @@ class PS(object):
    def handle_response(self, response_packet):
       return ('fwd', response_packet)
 
-   def init(self, data):
+   def ms_init(self, data):
       ms = MissionServer(data["name"], data["msID"])
 
       #check if ms is already in set
