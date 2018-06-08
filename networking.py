@@ -81,6 +81,24 @@ class JsonProtocolType(enum.Enum):
     ORIGIN      = 6
     ORIGIN_RESP = 7
 
+def getJsonProtocolType(s):
+    if s == "PS_INIT":
+        return JsonProtocolType.PS_INIT
+    elif s == "MS_INIT":
+        return JsonProtocolType.MS_INIT
+    elif s == "TR":
+        return JsonProtocolType.TR
+    elif s == "RESP":
+        return JsonProtocolType.RESP
+    elif s == "GS":
+        return JsonProtocolType.GS
+    elif s == "CANCEL":
+        return JsonProtocolType.CANCEL
+    elif s == "ORIGIN":
+        return JsonProtocolType.ORIGIN
+    elif s == "ORIGIN_RESP":
+        return JsonProtocolType.ORIGIN_RESP
+
 class JsonHandler(GenericHandler):
 
     def __init__(self, sock, config, ps_logic):
@@ -98,10 +116,10 @@ class JsonHandler(GenericHandler):
 
         if parse_tup is None:
             return
-
+        
         resps = self._handle_by_msg_type(*parse_tup)
 
-        for (dst, data) in resps:
+        for (dst, data) in resps.iteritems():
             self._send_data(dst, data)
 
 	return
@@ -133,7 +151,7 @@ class JsonHandler(GenericHandler):
             return None
 
         try:
-            message_type = JsonProtocolType[json_dict['type']]
+            message_type = getJsonProtocolType(json_dict['type'])
         except KeyError as e:
             self._log_failure(e, "Invalid message type")
             return None
@@ -211,8 +229,7 @@ class JsonHandler(GenericHandler):
         self.peer = Peer.MissionServer
         self.ms_handler_roster[data['msID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ms
-        self.ps_logic.ms_init(data)
-        return []
+        return self.ps_logic.ms_init(data)
 
 
 class LcmHandler(GenericHandler):
