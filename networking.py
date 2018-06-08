@@ -175,7 +175,7 @@ class JsonHandler(GenericHandler):
 
     def _handle_by_msg_type_ms(self, message_type, data):
         if message_type == JsonProtocolType.TR:
-            return self._handle_TR(self, data)
+            return self._handle_TR(data)
         elif message_type == JsonProtocolType.RESP:
             return []
         elif message_type == JsonProtocolType.CANCEL:
