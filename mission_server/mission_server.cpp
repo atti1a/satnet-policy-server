@@ -1,6 +1,7 @@
 #include "mission_server.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <sstream>
 
 #include "rapidjson/writer.h"
 #include <string>
@@ -171,7 +172,7 @@ int MissionSocket::write_cb(int fd, char type, void *arg)
 }
 
 //constructor
-MissionSocket::MissionSocket(int socketFD, Process *proc, response_cb resp_cb, 
+MissionSocket::MissionSocket(int socketFD, int gid, Process *proc, response_cb resp_cb, 
       gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb)
 {
    this->proc = proc;
@@ -195,6 +196,9 @@ MissionSocket::MissionSocket(int socketFD, Process *proc, response_cb resp_cb,
    recv_buf = (char *)malloc(RCV_BUF_SIZE);
    memset(recv_buf, 0, RCV_BUF_SIZE);
    recv_buf_pos = 0;
+
+   //global id
+   global_id = gid;
    
 }
 
@@ -238,7 +242,11 @@ int MissionSocket::send_time_request()
       writer.StartObject();
 
       writer.String("reqID");
-      writer.Int(queued_requests[i].reqID);
+
+      //do some magic to make the ID string
+      std::stringstream id_str;
+      id_str << global_id << "-" << queued_requests[i].reqID;
+      writer.String(id_str.str().c_str()); //yes, this is necessary.
 
       writer.String("gsID");
       writer.Int(queued_requests[i].gsID);
