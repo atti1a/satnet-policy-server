@@ -1,5 +1,19 @@
 import json
 
+class MissionServer(object):
+   """mission server object
+
+   Attribures:
+      name (string): the name of this mission server
+      ms_id (int): the unique id of this mission server
+   """
+   def __init__(self, name, id):
+      self.name = name
+      self.uuid = id
+
+   def __hash__(self):
+      return self.uuid
+
 class Schedule(object):
    """schedule object
 
@@ -301,6 +315,12 @@ class PS(object):
    def handle_response(self, response_packet):
       return ('fwd', response_packet)
 
-   def init(self):
-      # need to give groundstation a name
-      pass
+   def init(self, data):
+      ms = MissionServer(data["name"], data["msID"])
+
+      #check if ms is already in set
+      if ms in ms_set:
+         #TODO dont add it if already there?
+         pass
+      else:
+         ms_set.add(ms)
