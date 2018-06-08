@@ -125,7 +125,7 @@ void connect_to_policy_server(int ms_fd, std::string remote_server, int remote_p
         printf("Invalid remote server port: %d", remote_port);
         exit(1);
     }
-    remote_addr.sin_port = remote_port; //bind to any port
+    remote_addr.sin_port = htons(remote_port); //bind to any port
     if(connect(ms_fd, (sockaddr *)&remote_addr, sizeof(remote_addr)) == -1){
         perror("Connect to remote server failed");
         exit(1);
@@ -136,11 +136,8 @@ void connect_to_policy_server(int ms_fd, std::string remote_server, int remote_p
 int main(int argc, char **argv)
 {
     int global_id;
-    //hack to pass command line testing
-    if(argc == 1){
-        printf("Not processing the rest of the commandline");
-    }
-    else if(argc != 6){
+    int ms_fd;
+    if(argc != 7){
         printf("Usage: ms <name> <id> <local-addr> <local-port> <remote-server> <remote-port>\n");
         //id is globally unique
         exit(1);
@@ -151,7 +148,7 @@ int main(int argc, char **argv)
         //return the fd of the mission socket
         //TO DO get the local interfaces and choose from one of those
         //specify if we are connecting locally or externally
-        int ms_fd = bind_to_local_addr(local_addr, local_port);
+        ms_fd = bind_to_local_addr(local_addr, local_port);
 
         global_id = atoi(argv[2]);
 
@@ -160,12 +157,13 @@ int main(int argc, char **argv)
         connect_to_policy_server(ms_fd, remote_server, remote_port);
     }
     
+    //was using this in place of the policy server
     //int fd = open("ack_test.json", O_RDWR | O_APPEND);
-    int fd = open("ack_test.json", O_RDONLY);
-    if(fd < 0){
-        printf("bad file\n");
-        exit(1);
-    }
+    //int fd = open("ack_test.json", O_RDONLY);
+    //if(fd < 0){
+    //    printf("bad file\n");
+    //    exit(1);
+    //}
 
     Process *proc = new Process(NULL, WD_DISABLED);
 
