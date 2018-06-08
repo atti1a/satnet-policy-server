@@ -101,7 +101,7 @@ int bind_to_local_addr(std::string local_addr, int port){
     struct sockaddr_in local_sock;
     local_sock.sin_family = AF_INET;
     local_sock.sin_addr.s_addr = inet_addr(local_addr.c_str());
-    local_sock.sin_port = port; //bind to any port
+    local_sock.sin_port = port; //bind to any local port
 
     if(bind(sockfd, (sockaddr *)&local_sock, sizeof(local_sock)) == -1){
         perror("Failed to bind");
@@ -149,23 +149,14 @@ int main(int argc, char **argv)
         local_port = atoi(argv[4]);
         remote_server = argv[5];
         remote_port = atoi(argv[6]);
-
-        printf("MY LOCAL ADDR IS: %s\n", local_addr.c_str());
         shared_secret = argv[7];
+        
         //return the fd of the mission socket
         //TO DO get the local interfaces and choose from one of those
         //specify if we are connecting locally or externally
         ms_fd = bind_to_local_addr(local_addr, local_port);
         connect_to_policy_server(ms_fd, remote_server, remote_port);
     }
-    
-    //was using this in place of the policy server
-    //int fd = open("ack_test.json", O_RDWR | O_APPEND);
-    //int fd = open("ack_test.json", O_RDONLY);
-    //if(fd < 0){
-    //    printf("bad file\n");
-    //    exit(1);
-    //}
 
     Process *proc = new Process(NULL, WD_DISABLED);
 

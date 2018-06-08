@@ -52,7 +52,6 @@ void MissionSocket::set_comm_vars(int gid, std::string ss, std::string la, int l
    shared_secret = ss;
    global_id = gid;
    local_addr = la;
-   printf("save local addr as: %s\n", la.c_str());
    local_port = lp;
    name = ln;
 }

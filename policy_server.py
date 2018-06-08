@@ -366,8 +366,8 @@ class PS(object):
       ms = MissionServer(data["name"], data["msID"])
 
       #check if ms is already in set
-      if ms in ms_set:
+      if ms in self.ms_set:
          #TODO dont add it if already there?
          pass
       else:
-         ms_set.add(ms)
+         self.ms_set.add(ms)
