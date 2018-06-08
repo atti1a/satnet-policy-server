@@ -1,0 +1,63 @@
+//add_time specifies the ms, the start time, the end time, then the gs id
+
+
+test_0 
+Non-overlapping single MS single PS for simplest test
+
+test_1
+Non-overlapping times, request to a different policy server
+
+MS_1 -- PS_1
+    add_time(ms, 200, 300, 1)
+    add_time(ms, 400, 500, 2)
+    add_time(ms, 600, 700, 1)
+
+MS_2 -- PS_2
+    add_time(ms, 200, 300, 2)
+    add_time(ms, 400, 500, 1)
+    add_time(ms, 600, 700, 2)
+
+test_2
+Overlapping times, request to a different policy server
+
+MS_1 -- PS_1
+    add_time(ms, 200, 300, 1)
+    add_time(ms, 400, 500, 2)
+    add_time(ms, 600, 700, 1)
+
+MS_2 -- PS_2
+    add_time(ms, 200, 300, 1)
+
+test_3
+Request a time with a higher priority to invoke a cancel from a policy server
+MS_1 -- PS_1
+    add_time(ms, 200, 300, 1)
+    add_time(ms, 400, 500, 2)
+    add_time(ms, 600, 700, 1)
+
+MS_2 -- PS_2
+    add_time(ms, 200, 300, 1)
+
+
+test_4
+Request a time already designated with a lower priority to invoke a deny from a policy server
+
+test_5
+Request the same time from the same mission server to verify that time can't be assigned twice
+
+test_6
+Clear requested time for a MS that disconnects --> this is not handled by our policy server currently
+
+test_7
+Have impersonated MS connect to policy server --> verify that MS connection is closed by the policy server
+
+test_8
+Assign times back to back to a ms to specify a ms using two different gs back to back
+MS_1 -- PS_1
+    add_time(ms, 200, 300, 1)
+    add_time(ms, 300, 500, 2)
+
+test_9
+Stateful connection, allow for a MS to disconnect, and timeout certain requests unless they reconnct within specified time --> not handled by policy server right now
+
+

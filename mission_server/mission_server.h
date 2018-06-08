@@ -36,7 +36,7 @@ struct GroundStationInfo
 class MissionSocket
 {
    public:
-   MissionSocket(int socketFD, Process *proc, response_cb resp_cb, 
+   MissionSocket(int socketFD, int gid, Process *proc, response_cb resp_cb, 
       gs_update_cb gs_cb, cancel_cb canc_cb, withdrawl_cb wd_cb);
    //sends all queued time requests, returns number of requests sent
    int send_time_request();
@@ -46,6 +46,8 @@ class MissionSocket
    //same as queue_time_request() except it withdrawls a given time
    //returns back the request ID
    int queue_withdrawl_request(int reqID);
+
+
    
 
 
@@ -71,6 +73,7 @@ class MissionSocket
    int nextReqID;
 
    //vars for sending data
+   int global_id;
    char send_evt;
    char *send_buf;
    int send_buf_pos;

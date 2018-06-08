@@ -135,24 +135,28 @@ void connect_to_policy_server(int ms_fd, std::string remote_server, int remote_p
 
 int main(int argc, char **argv)
 {
+    int global_id;
     //hack to pass command line testing
     if(argc == 1){
         printf("Not processing the rest of the commandline");
     }
-    else if(argc != 5){
-        printf("Usage: ms <local-addr> <local-port> <remote-server> <remote-port>\n");
+    else if(argc != 6){
+        printf("Usage: ms <name> <id> <local-addr> <local-port> <remote-server> <remote-port>\n");
+        //id is globally unique
         exit(1);
     }
     else{
-        int local_port = atoi(argv[2]);
-        std::string local_addr = argv[1];
+        int local_port = atoi(argv[4]);
+        std::string local_addr = argv[3];
         //return the fd of the mission socket
         //TO DO get the local interfaces and choose from one of those
         //specify if we are connecting locally or externally
         int ms_fd = bind_to_local_addr(local_addr, local_port);
 
-        std::string remote_server = argv[3];
-        int remote_port = atoi(argv[4]);
+        global_id = atoi(argv[2]);
+
+        std::string remote_server = argv[5];
+        int remote_port = atoi(argv[6]);
         connect_to_policy_server(ms_fd, remote_server, remote_port);
     }
     
@@ -165,7 +169,7 @@ int main(int argc, char **argv)
 
     Process *proc = new Process(NULL, WD_DISABLED);
 
-    MissionSocket ms = MissionSocket(fd, proc, &ack_cb, &gs_cb, &canc_cb, &wd_cb);
+    MissionSocket ms = MissionSocket(fd, global_id, proc, &ack_cb, &gs_cb, &canc_cb, &wd_cb);
 
     //TO DO allow specification of time to schedule sending requests
     EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(60 * 1000),&request_cb, (void *)&ms);
