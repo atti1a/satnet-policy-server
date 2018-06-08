@@ -238,6 +238,11 @@ class LcmPolicyServer(PolicyServer):
 def gmtTime():
     return time.gmtime()
 
+
+def scheduleLoop(t):
+    asyncore.poll(timeout=t)
+
+
 def main():
     config = ConfigParser()
     config.read(sys.argv[1])
@@ -262,11 +267,15 @@ def main():
             jh = JsonHandler(sock, config, ps_logic)
             lg.debug("Connected to %s:%d", ip, port)
         except Exception as e:
-            lg.debug("Peer %s:%d is down" % (ip, port))
+            lg.warning("Peer %s:%d is down" % (ip, port))
             lg.debug(e)
             continue
 
-    asyncore.loop()
+    while True:
+        if s.empty():
+            scheduleLoop(30)
+        else:
+            s.run()
 
 if __name__ == '__main__':
     main()
