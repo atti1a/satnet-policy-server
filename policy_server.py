@@ -1,5 +1,20 @@
 import json
 from collections import defaultdict
+import sched, time
+
+class MissionServer(object):
+   """mission server object
+
+   Attribures:
+      name (string): the name of this mission server
+      ms_id (int): the unique id of this mission server
+   """
+   def __init__(self, name, id):
+      self.name = name
+      self.uuid = id
+
+   def __hash__(self):
+      return self.uuid
 
 class Schedule(object):
    """schedule object
@@ -15,6 +30,7 @@ class Schedule(object):
       self.gsID = req_packet['gsID']
       self.start = req_packet['start']
       self.end = req_packet['end']
+      self.eventID = -1
 
    def __hash__(self):
       return self.reqID
@@ -56,11 +72,12 @@ class PS(object):
 
       gs_set {int}: list of groundstation ids connected to us
    """
-   def __init__(self):
+   def __init__(self, scheduler):
       self.id = 0
-      self.schedules = set()
+      self.schedules = {}
       self.ms_set = set()
       self.gs_set = set()
+      self.scheduler = scheduler
 
    def strip_gs_metadata(self, gs_metadata):
       """
@@ -148,7 +165,8 @@ class PS(object):
       withdrawl_ack = {'reqID': reqID, 'ack' : ack, 'wd' : True}
 
       # Remove the schedule from the policy server
-      self.schedules.remove(gs_request['reqID'])
+      self.scheduler.cancel(self.schedules[gs_request['reqID']].eventID)
+      del self.schedules[gs_request['reqID']]
 
       return withdrawl_ack
 
@@ -167,32 +185,43 @@ class PS(object):
       """
       responses = defaultdict(list)
       cancels = defaultdict(list)
+      acking = False
 
       # create a schedule object
       request = Schedule(gs_request)
       reqID = request.reqID
 
-      conflicting_schedules = filter(request.has_conflict, self.schedules)
+      #check for conflicts
+      conflicting_schedules = {}
+      for reqID, sched in self.schedules.iteritems():
+         if request.has_conflict(sched):
+            conflicting_schedules[reqID] = sched
 
       # If we able to acquire conflicting schedules, we have a conflict
-      if conflicting_schedules:
-         lower_priority = lambda sched: self.has_priority(sched.reqID, request.reqID)
-         lower_priority_scheds = filter(lower_priority, conflicting_schedules)
+      if len(conflicting_schedules) > 0:
+         #build list of conflicts that are lower priority that the proposed request
+         lower_priority_scheds = {}
+         for reqID, conflict in conflicting_schedules.iteritems():
+            if self.has_priority(conflict.ms_id, ms_id):
+               lower_priority_scheds[reqID] = conflict
 
-      # If we have a conflict, but have priority over all those conflicts
+         # If we have a conflict, but have priority over all those conflicts
          if len(lower_priority_scheds) == len(conflicting_schedules):
-            self.schedules.add(request)
+            acking = True
 
-            # add ack to dictionary of packets to be sent
-            responses[reqID].append({'reqID': reqID, 'ack' : True, 'wd' : False})
-
-            # add cancel packet to those conflicts we're overriding
-            list_of_conflicting_scheds_as_dict = [x.__dict__ for x in conflicting_schedules]
-            merge_dict_of_lists(cancels, self.handle_cancel(list_of_conflicting_scheds_as_dict))
+            # send cancel packet to those conflicts we're overriding
+            merge_dict_of_lists(cancels, self.handle_cancel(conflicting_schedules))
 
       # Else, we have no conflict and we can just send an ack
       else:
-         responses[reqID].append({'reqID': reqID, 'ack' : True, 'wd' : False})
+         acking = True
+
+      if acking:
+         request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs_start, (request))
+         schedules[gs_request['reqID']] = request
+
+      ack = {'reqID': gs_request['reqID'], 'ack': acking, 'wd': False}
+      responses[gs_request['reqID']].append(ack)
 
       return responses, cancels
 
@@ -203,7 +232,7 @@ class PS(object):
       # isntantiate object just so we can use the method
       request = Schedule(gs_request)
 
-      for schedule in self.schedules:
+      for id, schedule in self.schedules.iteritems():
          if request.has_conflict(schedule): return True
 
       return False
@@ -253,6 +282,7 @@ class PS(object):
       # we can do more filtering if necessary
       is_not_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
       requests_for_other_gs = filter(is_not_our_gs, gs_requests)
+
       # NOTE how will we know what policy servers to send these requests too
       fwd_filtered_requests_for_other_gs = \
          filter(self.already_scheduled_with_own_gs, requests_for_other_gs)
@@ -261,7 +291,9 @@ class PS(object):
                                   ('cancel', cancels),
                                   ('TR', fwd_filtered_requests_for_other_gs)])
 
-   def control_gs(self, authority_ps, ms, time_range):
+
+   #takes a Schedule object as an argument
+   def control_gs_start(self, request):
       """
       Event: On recieve time notification from our gs_schedules
 
@@ -286,36 +318,53 @@ class PS(object):
          ground station to connect to he corresponding server (mission)
       """
 
+      #TODO check for mission_id to ip mapping
+
+      #TODO ??
       connection_packet = {
-         'authority_ps' : authority_ps,
-         'ms' : ms,
-         'time_range': time_range
+         'authority_ps' : 1,
+         'ms' : request.msID,
+         'time_range': request.start
       }
 
+      #schedule the time end event
+      request.eventID = self.scheduler.enterabs(request.end, 1, self.control_gs_end, (request))
+
       return ("gs", connection_packet)
+
+   def control_gs_end(self, request):
+      #TODO remove this completed time request from schedules
 
    def fwd_cancel(self, cancel_packets):
       return {cancel_packets['msID']: cancel_packets}
 
-   def handle_cancel(self, cancel_packets):
+   def handle_cancel(self, cancel_scheds):
       """does the requested cancels
       """
       cancel_forwards = defaultdict(list)
-      for cancel_packet in cancel_packets:
+      for cancel_id, cancel_sched in cancel_packets.iteritems():
          # Cancel the schedule by removing it from the policy servers schedule
          # But also get it so we can get the msID
-         canceled_sched = self.schedules.pop([cancel_packet['reqID']])
 
          #Forward cancel to corresponding mission server
-         msID = canceled_sched.msID
-         reqID = canceled_sched.reqID
-         cancel_forwards[msID].append({'reqID': reqID})
+         reqID = cancel_id
+
+         self.scheduler.cancel(sched.eventID)
+         del self.schedules[cancel_id]
+
+         cancel_forwards[reqID].append({'reqID': reqID})
 
       return cancel_forwards
 
    def handle_response(self, response_packet):
       return ('fwd', response_packet)
 
-   def init(self):
-      # need to give groundstation a name
-      pass
+   def ms_init(self, data):
+      ms = MissionServer(data["name"], data["msID"])
+
+      #check if ms is already in set
+      if ms in ms_set:
+         #TODO dont add it if already there?
+         pass
+      else:
+         ms_set.add(ms)

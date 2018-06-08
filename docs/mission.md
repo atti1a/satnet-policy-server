@@ -24,7 +24,21 @@ struct satellite_info {
     tle_track_params tle;
 }
 
-struct _satnet_tle_track_params {
+struct set_rf_params {
+    int8_t     use_for_tx;
+    int8_t     use_for_rx;
+    int16_t    mode;
+    int32_t    baudrate;
+    char*      modulation;
+    char*      encoding;
+    int32_t    frequency;
+    double     rf_h_val;
+    int32_t    fec;
+    int16_t    l1_framing;
+    int16_t    l1_checksum;
+};
+
+struct tle_track_params {
     char*      name;
     char*      tle_line1;
     char*      tle_line2;
