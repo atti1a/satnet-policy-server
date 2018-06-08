@@ -246,7 +246,7 @@ int MissionSocket::send_time_request()
       //do some magic to make the ID string
       std::stringstream id_str;
       id_str << global_id << "-" << queued_requests[i].reqID;
-      writer.String(id_str.str().c_str()); //yes, this is necessary.
+      writer.String(id_str.str().c_str());
 
       writer.String("gsID");
       writer.Int(queued_requests[i].gsID);
