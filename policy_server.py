@@ -287,6 +287,11 @@ class PS(object):
       fwd_filtered_requests_for_other_gs = \
          filter(self.already_scheduled_with_own_gs, requests_for_other_gs)
 
+      combining_packets = []
+      if responses: combining_packets.append(('RESP', responses))
+      if cancels: combining_packets.append(('cancel', responses))
+      if fwd_filtered_requests_for_other_gs: combining_packets.append(('TR', responses))
+
       return self.format_packets([('RESP', responses),
                                   ('cancel', cancels),
                                   ('TR', fwd_filtered_requests_for_other_gs)])
