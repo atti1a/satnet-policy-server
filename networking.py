@@ -1,24 +1,25 @@
 from __future__ import print_function
 
-import asyncore, asynchat, enum, json, logging, socket
+import asyncore, asynchat, enum, json, logging, socket, sys
 import sched, time
 from ConfigParser import ConfigParser
 from policy_server import PS
 
 class PolicyServer(asyncore.dispatcher):
 
-    def __init__(self, ps_logic):
+    def __init__(self, config, ps_logic):
 	asyncore.dispatcher.__init__(self)
 
 	self.logger = logging.getLogger(self.__class__.__name__)
         self.handler = GenericHandler
         self.ps_logic = ps_logic
+        self.config = config
 
 
     def handle_accept(self):
         connection, address = self.accept()
         self.logger.debug('accept -> %s', address)
-        self.handler(connection, self.ps_logic)
+        self.handler(connection, self.config, self.ps_logic)
         
 
     def handle_close(self):
@@ -45,13 +46,14 @@ class GenericHandler(asynchat.async_chat):
     ms_handler_roster = {}
     ps_handler_roster = {}
 
-    def __init__(self, sock, ps_logic, terminator):
+    def __init__(self, sock, config, ps_logic, terminator):
         asynchat.async_chat.__init__(self, sock=sock)
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.buffer = []
         self.ps_logic = ps_logic
         self.peer = Peer.Generic
+        self.config = config
 
         self.set_terminator(terminator)
 
@@ -80,10 +82,12 @@ class JsonProtocolType(enum.Enum):
 
 class JsonHandler(GenericHandler):
 
-    def __init__(self, sock, ps_logic):
-        GenericHandler.__init__(self, sock, ps_logic, '\n')
+    def __init__(self, sock, config, ps_logic):
+        GenericHandler.__init__(self, sock, config, ps_logic, '\n')
 
         self._handle_by_msg_type = self._handle_by_msg_type_init
+
+        self._send_ps_metadata()
 
 
     def found_terminator(self):
@@ -98,9 +102,21 @@ class JsonHandler(GenericHandler):
         resps = self._handle_by_msg_type(*parse_tup)
 
         for (dst, data) in resps:
-            self.logger.debug('Gotta send something to %s', dst)
+            self._send_data(dst, data)
 
         return
+
+
+    def _send_ps_metadata(self):
+        msg = {'type': JsonProtocolType.PS_INIT.name, 
+               'psID': self.config.get('server', 'id'),
+               'name': self.config.get('server', 'name')}
+
+        self.push(json.dumps(msg))
+
+
+    def _send_data(self, dst, data):
+        self.logger.debug('Gotta send something to %s', dst)
 
 
     def _parse_message(self, msg):
@@ -135,36 +151,29 @@ class JsonHandler(GenericHandler):
         return []
 
 
-
     def _handle_by_msg_type_ps(self, message_type, data):
         if message_type == JsonProtocolType.TR:
-            # resps = self.ps_logic.handle_request
-            pass
+            return []
         elif message_type == JsonProtocolType.RESP:
-            pass
+            return []
         elif message_type == JsonProtocolType.GS:
-            # resps = self.ps_logic.fwd_stripped_gs_metadata(data_field)
-            pass
+            return self.ps_logic.fwd_stripped_gs_metadata(data_field)
         elif message_type == JsonProtocolType.CANCEL:
-            pass
-
-        return []
+            return []
 
 
     def _handle_by_msg_type_ms(self, message_type, data):
         if message_type == JsonProtocolType.TR:
-            # resps = self.ps_logic.handle_request
-            pass
+            return []
         elif message_type == JsonProtocolType.RESP:
-            pass
+            return []
         elif message_type == JsonProtocolType.CANCEL:
-            pass
+            return []
 
-        return []
 
     def _handle_PS_INIT(self, data):
-        #TODO Pass through to event ps_init
         self.logger.debug("Converting %s to %s", self.peer, Peer.PolicyServer)
+        #TODO Pass through to event ps_init
         self.peer = Peer.PolicyServer
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
@@ -177,8 +186,8 @@ class JsonHandler(GenericHandler):
             self.logger.error('Bad psk, killing mission server connection')
             self.close()
 
-        #TODO Pass through to event ms_init
         self.logger.debug("Converting %s to %s", self.peer, Peer.MissionServer)
+        self.ps_logic.ms_init(data)
         self.peer = Peer.MissionServer
         self.ms_handler_roster[data['msID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ms
@@ -186,8 +195,8 @@ class JsonHandler(GenericHandler):
 
 class LcmHandler(GenericHandler):
 
-    def __init__(self, sock, ps_logic):
-        GenericHandler.__init__(self, sock, ps_logic, 0)
+    def __init__(self, sock, config, ps_logic):
+        GenericHandler.__init__(self, sock, config, ps_logic, 0)
 
     def found_terminator(self):
         msg = ''.join(self.buffer)
@@ -195,10 +204,11 @@ class LcmHandler(GenericHandler):
 
         self.logger.debug('%s', msg)
 
+
 class JsonPolicyServer(PolicyServer):
 
     def __init__(self, config, ps_logic):
-        PolicyServer.__init__(self, ps_logic)
+        PolicyServer.__init__(self, config, ps_logic)
 
         self.handler = JsonHandler
 
@@ -210,7 +220,7 @@ class JsonPolicyServer(PolicyServer):
 class LcmPolicyServer(PolicyServer):
 
     def __init__(self, config, ps_logic):
-        PolicyServer.__init__(self, ps_logic)
+        PolicyServer.__init__(self, config, ps_logic)
 
         self.handler = LcmHandler
 
@@ -227,7 +237,7 @@ def asyncLoop(t):
 
 def main():
     config = ConfigParser()
-    config.read('config.ini')
+    config.read(sys.argv[1])
 
     s = sched.scheduler(gmtTime, asyncLoop)
     ps_logic = PS(s)
@@ -237,6 +247,19 @@ def main():
 
     JsonPolicyServer(config, ps_logic)
     LcmPolicyServer(config, ps_logic)
+
+    for origin in config.get('peers', 'policy_servers').split():
+        try:
+            ip, port = origin.split(':')
+            port = int(port)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((ip, port))
+            jh = JsonHandler(sock, config, ps_logic)
+            jh.logger.debug("Connected to %s:%d", ip, port)
+        except Exception as e:
+            print(e)
+            print("Failed to connect to %s:%d" % (ip, port))
+            continue
 
     while True:
         s.run()
