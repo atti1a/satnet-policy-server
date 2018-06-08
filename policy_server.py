@@ -371,3 +371,20 @@ class PS(object):
          pass
       else:
          self.ms_set.add(ms)
+         
+      #TODO lol, hard coded groundstations for testing
+      gs_list = {}
+      gs_list["msID"] = {
+         "type":"GS",
+         "gsList":[
+            {
+               "gsID": 0, "lat": 0, "long" : 0
+            },
+            {
+               "gsID": 1, "lat": 10, "long" : 11                         
+            }
+         ]
+      }
+
+
+      return gs_list
