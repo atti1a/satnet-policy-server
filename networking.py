@@ -192,11 +192,11 @@ class JsonHandler(GenericHandler):
         if message_type == JsonProtocolType.TR:
             return self._handle_TR(data)
         elif message_type == JsonProtocolType.RESP:
-            return []
+            return self.ps_logic.fwd_responses_to_ms(data)
         elif message_type == JsonProtocolType.GS:
-            return self.ps_logic.fwd_stripped_gs_metadata(data_field)
+            return self.ps_logic.fwd_stripped_gs_metadata(data)
         elif message_type == JsonProtocolType.CANCEL:
-            return []
+            return self.ps_logic.fwd_cancel_to_ms(data)
         elif message_type == JsonProtocolType.PS_INIT:
             return []
         else:
@@ -207,9 +207,9 @@ class JsonHandler(GenericHandler):
         if message_type == JsonProtocolType.TR:
             return self._handle_TR(data)
         elif message_type == JsonProtocolType.RESP:
-            return []
+            return [] #should never occur
         elif message_type == JsonProtocolType.CANCEL:
-            return []
+            return [] #should never occur
         elif message_type == JsonProtocolType.MS_INIT:
             return []
         else:
@@ -233,7 +233,7 @@ class JsonHandler(GenericHandler):
     def _handle_PS_INIT(self, data):
 
         self.logger.debug("Converting %s to %s", self.peer, Peer.PolicyServer)
-        #TODO Pass through to event ps_init
+        self.ps_logic.ps_init(data, self)
         self.peer = Peer.PolicyServer
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
@@ -343,9 +343,9 @@ def main():
             continue
 
     #TODO this is for testing
-    ps_logic.add_groundstation(0, 12, 13)
-    ps_logic.add_groundstation(1, 32, 33)
-    ps_logic.add_groundstation(2, 4, 11)
+    ps_logic.add_groundstation_local(0, 12, 13)
+    ps_logic.add_groundstation_local(1, 32, 33)
+    ps_logic.add_groundstation_local(2, 4, 11)
 
 
     while True:
