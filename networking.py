@@ -128,16 +128,10 @@ class JsonHandler(GenericHandler):
 	return
 
 
-    def push_json_ps(self, data):
+    def push_json(self, data):
         self.logger.debug("Sending json object to policy server")
         self.logger.debug(data)
         self.push(json.dumps(data) + '\n')
-
-
-    def push_json_ms(self, data):
-        self.logger.debug("Sending json object to mission server")
-        self.logger.debug(data)
-        self.push(json.dumps(data))
 
 
     def _send_data(self, dst, data):
@@ -237,7 +231,6 @@ class JsonHandler(GenericHandler):
         self.peer = Peer.PolicyServer
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
-        self.push_json = self.push_json_ps
         self.send_ps_metadata()
         return []
 
@@ -253,7 +246,6 @@ class JsonHandler(GenericHandler):
         self.peer = Peer.MissionServer
         self.ms_handler_roster[data['msID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ms
-        self.push_json = self.push_json_ms
         
         gs_data = self.ps_logic.ms_init(data, self)
 

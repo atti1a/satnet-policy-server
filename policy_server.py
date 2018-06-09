@@ -34,7 +34,7 @@ class PolicyServer(Server):
       ps_id (int): the unique id of this policy server
    """
    def __init__(self, name, ps_id, connRef):
-      Server.__init__(name, ps_id, connRef)
+      Server.__init__(self, name, ps_id, connRef)
       self.msList = set()
 
 
@@ -508,13 +508,13 @@ class PS(object):
       return gs_list
 
    def ps_init(self, data, connRef):
-      ps = PolicySever(data["name"], data["psID"], connRef)
+      ps = PolicyServer(data["name"], data["psID"], connRef)
       key = "ps" + str(data["psID"])
 
       self.peers[key] = ps
 
       #check if ms is already in set
-      if ps in self.ps_set:
-         pass
-      else:
-         self.ps_set.add(ps)
+      # if ps in self.ps_set:
+      #    pass
+      # else:
+      #    self.ps_set.add(ps)
