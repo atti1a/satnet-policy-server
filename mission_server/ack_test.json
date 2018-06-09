@@ -1,6 +1,6 @@
 
 {
-    "type":"resp", "respList" : 
+    "type":"RESP", "respList" : 
     [
         {
             "reqID": 1, "ack" : true

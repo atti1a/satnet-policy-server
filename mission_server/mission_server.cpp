@@ -81,7 +81,7 @@ void MissionSocket::parse_gs_list(Value& gs_list)
    //clear previous gs list
    gs_info.clear();
    for(int i = 0; i < gs_list.Size(); i++){
-         if(gs_list[i].HasMember("gsID") && gs_list[i].HasMember("lat") && gs_list.HasMember("long")){
+         if(gs_list[i].HasMember("gsID") && gs_list[i].HasMember("lat") && gs_list[i].HasMember("long")){
             struct GroundStationInfo gs = {gs_list[i]["gsID"].GetInt(), 
                gs_list[i]["lat"].GetFloat(), gs_list[i]["long"].GetFloat()};
             gs_info.push_back(gs);
