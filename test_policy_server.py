@@ -17,7 +17,7 @@ def test_handle_request():
       {"reqID": "12-5", "gsID": 0, "start": 0, "end":1, "wd": False},
    ]
 
-   print policy_server.handle_requests(time_request)
+   print policy_server.handle_requests(time_request, "abc")
    print 'hello'
 
 def main():

@@ -45,7 +45,8 @@ class Schedule(object):
       start (int): start time of schedule
       end (int): end time of the schedule
    """
-   def __init__(self, req_packet):
+   def __init__(self, req_packet, connRef):
+      self.connRef = connRef
       self.reqID = req_packet['reqID']
       self.gsID = req_packet['gsID']
       self.start = req_packet['start']
@@ -102,7 +103,8 @@ class PS(object):
       self.id = 0
       self.schedules = {}
       self.ms_set = set()
-      self.gs_set = set()
+      self.gs_set = set() #set of our ground station ids
+      self.foreign_gs = {} #all other gs indexed on id, stores connection to reach that gs
       self.scheduler = scheduler
 
    def add_groundstation(self, id, lat, long):
@@ -162,7 +164,7 @@ class PS(object):
 
       return {"servers": stripped_gs_metadata}
 
-   def fwd_stripped_gs_metadata(self, stripped_gs_metadata):
+   def fwd_stripped_gs_metadata(self, stripped_gs_metadata, connRef):
       """
       Event: On receive of another school's stripped gs metadata packet
          from another school's server (policy)
@@ -181,6 +183,9 @@ class PS(object):
          metadata regarding a gs that will be sent to all the servers
          (policy and mission)
       """
+
+      for gs in stripped_gs_metadata:
+         self.foreign_gs[gs["gsID"]] = connRef
 
       return {'all_servers': stripped_gs_metadata}
 
@@ -217,14 +222,15 @@ class PS(object):
          #Forward cancel to corresponding mission server
          reqID = cancel_id
 
+         connRef = cancel_sched.connRef
          self.scheduler.cancel(cancel_sched.eventID)
          del self.schedules[cancel_id]
 
-         cancel_forwards[reqID].append({'reqID': reqID})
+         cancel_forwards[connRef].append({'reqID': reqID})
 
       return cancel_forwards
 
-   def handle_schedule_request(self, gs_request):
+   def handle_schedule_request(self, gs_request, connRef):
       """tries to schedule a single request
       conflict --> nack
       conflict but has priority --> cancel to original schedule and ack
@@ -235,7 +241,7 @@ class PS(object):
       acking = False
 
       # create a schedule object
-      request = Schedule(gs_request)
+      request = Schedule(gs_request, connRef)
       reqID = request.reqID
 
       #check for conflicts
@@ -268,7 +274,7 @@ class PS(object):
          self.schedules[gs_request['reqID']] = request
 
       ack = {'reqID': gs_request['reqID'], 'ack': acking, 'wd': False}
-      responses[gs_request['reqID']].append(ack)
+      responses[connRef].append(ack)
 
       return responses, cancels
 
@@ -277,7 +283,7 @@ class PS(object):
       groundstations so that we can filter some requests for other gs before
       sending it out"""
       # isntantiate object just so we can use the method
-      request = Schedule(gs_request)
+      request = Schedule(gs_request, None)
 
       for reqID, schedule in self.schedules.iteritems():
          if request.has_conflict(schedule): return True
@@ -299,7 +305,7 @@ class PS(object):
 
       return packets
 
-   def handle_requests(self, gs_requests):
+   def handle_requests(self, gs_requests, connRef):
       """
       Event: On receive of a ground_station request packet for another school's
          ground station from our own server (mission)
@@ -318,11 +324,13 @@ class PS(object):
       responses, cancels = defaultdict(list), defaultdict(list)
       for gs_request in requests_for_our_gs:
          if gs_request['wd']:
-            responses += self.handle_withdrawl(gs_request)
+            gsConnection = self.foreign_gs[gs_request['gsID']]
+            responses[gsConnection].append(self.handle_withdrawl(gs_request))
          else:
-            some_responses, some_cancels = self.handle_schedule_request(gs_request)
+            some_responses, some_cancels = self.handle_schedule_request(gs_request, connRef)
             merge_dict_of_lists(responses, some_responses)
             merge_dict_of_lists(cancels, some_cancels)
+
 
       # requests for other groundstations, we also filter out requests that we
       # can already fulfill with our own groundstations before sending it out,
@@ -334,10 +342,15 @@ class PS(object):
       fwd_filtered_requests_for_other_gs = \
          filter(self.already_scheduled_with_own_gs, requests_for_other_gs)
 
+      time_requests = defaultdict(list)
+      for req in fwd_filtered_requests_for_other_gs:
+         time_requests[self.foreign_gs[req["gsID"]]].append(req)
+
+
       combining_packets = []
       if responses: combining_packets.append(('RESP', responses))
       if cancels: combining_packets.append(('cancel', responses))
-      if fwd_filtered_requests_for_other_gs: combining_packets.append(('TR', responses))
+      if time_requests: combining_packets.append(('TR', responses))
 
       return self.format_packets(combining_packets)
 

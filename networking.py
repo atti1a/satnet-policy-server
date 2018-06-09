@@ -214,7 +214,7 @@ class JsonHandler(GenericHandler):
 
 
     def _handle_TR(self, data):
-        self.ps_logic.handle_requests(data['trList'])
+        self.ps_logic.handle_requests(data['trList'], self)
         return []
 
 
