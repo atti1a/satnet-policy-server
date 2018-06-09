@@ -15,6 +15,8 @@ class MissionServer(object):
 
    def __hash__(self):
       return self.uuid
+   def __eq__(self, other):
+      return self.uuid == other
 
 class PolicyServer(object):
    """policy server object
@@ -31,10 +33,14 @@ class PolicyServer(object):
       return self.uuid
 
 class GroundStation(object):
-      def __init__(self, id, lat, long):
-            self.id = id
-            self.lat = lat
-            self.long = long
+   def __init__(self, id, lat, long):
+      self.id = id
+      self.lat = lat
+      self.long = long
+   def __hash__(self):
+      return self.id
+   def __eq__(self, other):
+      return self.id == other
 
 class Schedule(object):
    """schedule object
@@ -335,7 +341,7 @@ class PS(object):
       # requests for other groundstations, we also filter out requests that we
       # can already fulfill with our own groundstations before sending it out,
       # we can do more filtering if necessary
-      is_not_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
+      is_not_our_gs = lambda gs_request: gs_request['gsID'] not in self.gs_set
       requests_for_other_gs = filter(is_not_our_gs, gs_requests)
 
       # NOTE how will we know what policy servers to send these requests too
