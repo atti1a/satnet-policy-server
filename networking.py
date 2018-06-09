@@ -255,7 +255,7 @@ class JsonHandler(GenericHandler):
         self._handle_by_msg_type = self._handle_by_msg_type_ms
         self.push_json = self.push_json_ms
         
-        gs_data = self.ps_logic.ms_init(data)
+        gs_data = self.ps_logic.ms_init(data, self)
 
         print(gs_data)
 

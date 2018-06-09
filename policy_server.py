@@ -317,10 +317,10 @@ class PS(object):
          'TR': 'trList'
       }
 
-      packets = {}
+      packets = defaultdict(list)
       for packet_type, packet in list_of_packet_dicts:
          for msg_type, packet_list in packet.iteritems():
-            packets[msg_type] = {'type': packet_type, list_name_mapping[packet_type]: packet_list}
+            packets[msg_type].append({'type': packet_type, list_name_mapping[packet_type]: packet_list})
 
       return packets
 
@@ -438,7 +438,7 @@ class PS(object):
    def handle_response(self, response_packet):
       return ('fwd', response_packet)
 
-   def ms_init(self, data):
+   def ms_init(self, data, connRef):
       ms = MissionServer(data["name"], data["msID"])
 
       #check if ms is already in set
@@ -449,10 +449,10 @@ class PS(object):
          self.ms_set.add(ms)
 
       gs_list = {}
-      gs_list[data['msID']] = {
+      gs_list[connRef] = [{
          "type":"GS",
          "gsList":build_gs_array(self.gs_set)
-      }
+      }]
 
       return gs_list
 
