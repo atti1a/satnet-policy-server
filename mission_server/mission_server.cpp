@@ -297,7 +297,11 @@ void MissionSocket::send_init()
 //returns number of requests to be sent, does not send immediately, uses select loop
 int MissionSocket::send_time_request()
 {
-   int numSent;
+   int numSent = 0;
+   if(queued_requests.size() == 0){
+         return numSent;
+   }
+   
    StringBuffer sb;
    Writer<StringBuffer> writer(sb);
 
@@ -335,6 +339,7 @@ int MissionSocket::send_time_request()
       writer.EndObject();
       numSent ++;
    }
+   //get rid of the queued requests to stop sending
    writer.EndArray();
 
    writer.EndObject();
