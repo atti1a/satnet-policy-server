@@ -120,7 +120,10 @@ class JsonHandler(GenericHandler):
         resps = self._handle_by_msg_type(*parse_tup)
 
         for dst, data in resps:
-            self._send_data(dst, data)
+            if isinstance(dst, JsonHandler):
+                dst.push_json(data)
+            else:
+                print("Strings not yet implemented")
 
 	return
 
@@ -247,8 +250,13 @@ class JsonHandler(GenericHandler):
 
         print(gs_data)
 
-        return [(self.ms_handler_roster[msId], gsList)
-                for msId, gsList in gs_data.iteritems()]
+        send_tuples = []
+
+        for dst, packets in gs_data.iteritems():
+            for packet in packets:
+                send_tuples.append((dst, packet))
+
+        return send_tuples
 
 
 
