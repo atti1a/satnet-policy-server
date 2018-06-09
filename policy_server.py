@@ -15,9 +15,8 @@ class MissionServer(object):
 
    def __hash__(self):
       return self.uuid
-   def __eq__(self):
-         return self.uuid
-
+   def __eq__(self, other):
+      return self.uuid == other
 
 class PolicyServer(object):
    """policy server object
