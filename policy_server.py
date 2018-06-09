@@ -16,6 +16,12 @@ class MissionServer(object):
    def __hash__(self):
       return self.uuid
 
+class GroundStation(object):
+      def __init__(self, id, lat, long):
+            self.id = id
+            self.lat = lat
+            self.long = long
+
 class Schedule(object):
    """schedule object
 
@@ -60,6 +66,12 @@ def merge_dict_of_lists(d1, d2):
    for k, v in d2.iteritems():
       d1[k] += v
 
+def build_gs_array(gs_set):
+      gs_arr = []
+      for gs in gs_set:
+         gs_arr.append({"gsID":gs.id, "lat":gs.lat, "long": gs.long})
+      return gs_arr
+
 class PS(object):
    """Contains all relevant logic and data necessary for gss
 
@@ -78,6 +90,9 @@ class PS(object):
       self.ms_set = set()
       self.gs_set = set()
       self.scheduler = scheduler
+
+   def add_groundstation(self, id, lat, long):
+      self.gs_set.add(GroundStation(id, lat, long))
 
    def strip_gs_metadata(self, gs_metadata):
       """
@@ -372,19 +387,10 @@ class PS(object):
       else:
          self.ms_set.add(ms)
 
-      #TODO lol, hard coded groundstations for testing
       gs_list = {}
       gs_list[data['msID']] = {
          "type":"GS",
-         "gsList":[
-            {
-               "gsID": 0, "lat": 0, "long" : 0
-            },
-            {
-               "gsID": 1, "lat": 10, "long" : 11
-            }
-         ]
+         "gsList":build_gs_array(self.gs_set)
       }
-
 
       return gs_list

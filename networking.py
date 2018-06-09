@@ -187,7 +187,7 @@ class JsonHandler(GenericHandler):
 
     def _handle_by_msg_type_ps(self, message_type, data):
         if message_type == JsonProtocolType.TR:
-            return []
+            return self.ps_logic.handle_requests(data)
         elif message_type == JsonProtocolType.RESP:
             return []
         elif message_type == JsonProtocolType.GS:
@@ -324,6 +324,12 @@ def main():
             lg.warning("Peer %s:%d is down" % (ip, port))
             lg.debug(e)
             continue
+
+    #TODO this is for testing
+    ps_logic.add_groundstation(0, 12, 13)
+    ps_logic.add_groundstation(1, 32, 33)
+    ps_logic.add_groundstation(2, 4, 11)
+
 
     while True:
         if s.empty():
