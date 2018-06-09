@@ -190,7 +190,7 @@ class JsonHandler(GenericHandler):
 
     def _handle_by_msg_type_ps(self, message_type, data):
         if message_type == JsonProtocolType.TR:
-            return self.ps_logic.handle_requests(data)
+            return self._handle_TR(data)
         elif message_type == JsonProtocolType.RESP:
             return []
         elif message_type == JsonProtocolType.GS:
@@ -217,8 +217,17 @@ class JsonHandler(GenericHandler):
 
 
     def _handle_TR(self, data):
-        self.ps_logic.handle_requests(data['trList'], self)
-        return []
+        resps = self.ps_logic.handle_requests(data['trList'], self)
+
+        print("TR Responses")
+        print(resps)
+
+        send_tuples = []
+        for dst, packets in resps.iteritems():
+            for packet in packets:
+                send_tuples.append((dst, packet))
+
+        return send_tuples
 
 
     def _handle_PS_INIT(self, data):
