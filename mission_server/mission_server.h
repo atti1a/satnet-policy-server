@@ -27,9 +27,9 @@ struct TimeRequest
 
 struct GroundStationInfo
 {
+    int gsID;
    float lat;
    float lon;
-   int gsID;
    //TO DO other info
 };
 

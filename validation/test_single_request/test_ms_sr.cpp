@@ -43,6 +43,9 @@ void gs_cb(std::vector<struct GroundStationInfo>& gs_list)
     //Match with the lat and long of gs in list
     //send time requests
     printf("Got list of %i groundstations\n", gs_list.size());
+    for(int i = 0; i < gs_list.size(); i ++){
+        printf("got gs %i\n", gs_list[i].gsID);
+    }
 }
 
 void canc_cb(int reqID)

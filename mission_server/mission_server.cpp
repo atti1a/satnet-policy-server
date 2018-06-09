@@ -60,18 +60,20 @@ void MissionSocket::set_comm_vars(int gid, std::string ss, std::string la, int l
 void MissionSocket::parse_resp(Value& resp_list)
 {
    for(int i = 0; i < resp_list.Size(); i++){
-      if(resp_list[i].HasMember("reqID") && resp_list[i]["reqID"].IsInt() && resp_list[i].HasMember("ack") && resp_list[i]["ack"].IsBool()){
+      if(resp_list[i].HasMember("reqID") && resp_list[i]["reqID"].IsString() && resp_list[i].HasMember("ack") && resp_list[i]["ack"].IsBool()){
+         int id = atoi(strstr(resp_list[i]["reqID"].GetString(), "-") + 1);
          //check withdrawl case
          if(resp_list[i].HasMember("wd") && resp_list[i]["wd"].IsBool() && resp_list[i]["wd"].GetBool()){
-            wd_cb(resp_list[i]["reqID"].GetInt(), resp_list[i]["ack"].GetBool());
+            wd_cb(id, resp_list[i]["ack"].GetBool());
          }
          else{
             //ack callback
-            resp_cb(resp_list[i]["reqID"].GetInt(), resp_list[i]["ack"].GetBool());
+            resp_cb(id, resp_list[i]["ack"].GetBool());
          }
       }
       else{
          //invalid, ignore
+         printf("invalid\n");
       }
    }
 }
@@ -134,7 +136,7 @@ int MissionSocket::attempt_parse(char *buff)
       }
       parse_resp(d["respList"]);
    }
-   if(d["type"] == "PS_INIT"){
+   else if(d["type"] == "PS_INIT"){
       printf("Got a PS_INIT packet\n");
    }
    //expect to see a vector of all groundstations that are available
@@ -154,7 +156,13 @@ int MissionSocket::attempt_parse(char *buff)
       parse_cancel(d["cancelList"]);
    }
    else{
-      printf("Invalid header type\n");
+      rapidjson::StringBuffer buffer;
+
+      buffer.Clear();
+
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      d.Accept(writer);
+      printf("Invalid header type\n %s\n |%s|\n%d\n", buffer.GetString(), d["type"].GetString(), strcmp(d["type"].GetString(), "RESP"));
    }
    return size_parsed;
 }
