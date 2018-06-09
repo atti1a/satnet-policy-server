@@ -34,9 +34,9 @@ def test_handle_request():
    policy_server.gs_set.remove(2)
 
    #TEST - two groundstations with some conflicts
-   
 
-   response = policy_server.handle_requests(two_gs_with_no_conflict)
+
+   response = policy_server.handle_requests(time_request, "abc")
    for dest, packet in response.items():
       print dest
       print packet
