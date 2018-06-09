@@ -70,10 +70,10 @@ void wd_cb(int reqID, bool accepted)
 int request_cb(void *arg){
     MissionSocket *ms = (MissionSocket *)arg;
     if(time_requests.size() == 0){
-        return EVENT_KEEP;
+        return EVENT_REMOVE;
     }
     ms->send_time_request();
-    return EVENT_KEEP;
+    return EVENT_REMOVE;
 }
 
 void add_time(MissionSocket& ms, time_t start, time_t end, int gsID)
@@ -166,10 +166,10 @@ int main(int argc, char **argv)
     ms.send_init();
 
     //TO DO allow specification of time to schedule sending requests
-    EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(60 * 1000),&request_cb, (void *)&ms);
+    EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(5 * 1000),&request_cb, (void *)&ms);
 
-    add_time(ms, 12, 13, 101);
-    //add_time(ms, 23, 26, 102);
+    add_time(ms, 12, 13, 0);
+    add_time(ms, 23, 26, 2);
     //add_time(ms, 45, 55, 101);
     //ms.queue_withdrawl_request(2);
     //ms.send_time_request();
