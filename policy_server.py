@@ -177,6 +177,24 @@ class PS(object):
       # FOR NOW
       return req_id_1 > req_id_2
 
+   def handle_cancel(self, cancel_scheds):
+      """does the requested cancels
+      """
+      cancel_forwards = defaultdict(list)
+      for cancel_id, cancel_sched in cancel_scheds.iteritems():
+         # Cancel the schedule by removing it from the policy servers schedule
+         # But also get it so we can get the msID
+
+         #Forward cancel to corresponding mission server
+         reqID = cancel_id
+
+         self.scheduler.cancel(cancel_sched.eventID)
+         del self.schedules[cancel_id]
+
+         cancel_forwards[reqID].append({'reqID': reqID})
+
+      return cancel_forwards
+
    def handle_schedule_request(self, gs_request):
       """tries to schedule a single request
       conflict --> nack
@@ -341,24 +359,6 @@ class PS(object):
    def fwd_cancel(self, cancel_packets):
       return {cancel_packets['msID']: cancel_packets}
 
-   def handle_cancel(self, cancel_scheds):
-      """does the requested cancels
-      """
-      cancel_forwards = defaultdict(list)
-      for cancel_id, cancel_sched in cancel_scheds.iteritems():
-         # Cancel the schedule by removing it from the policy servers schedule
-         # But also get it so we can get the msID
-
-         #Forward cancel to corresponding mission server
-         reqID = cancel_id
-
-         self.scheduler.cancel(sched.eventID)
-         del self.schedules[cancel_id]
-
-         cancel_forwards[reqID].append({'reqID': reqID})
-
-      return cancel_forwards
-
    def handle_response(self, response_packet):
       return ('fwd', response_packet)
 
@@ -371,7 +371,7 @@ class PS(object):
          pass
       else:
          self.ms_set.add(ms)
-         
+
       #TODO lol, hard coded groundstations for testing
       gs_list = {}
       gs_list[data['msID']] = {
@@ -381,7 +381,7 @@ class PS(object):
                "gsID": 0, "lat": 0, "long" : 0
             },
             {
-               "gsID": 1, "lat": 10, "long" : 11                         
+               "gsID": 1, "lat": 10, "long" : 11
             }
          ]
       }
