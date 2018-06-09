@@ -16,6 +16,20 @@ class MissionServer(object):
    def __hash__(self):
       return self.uuid
 
+class PolicyServer(object):
+   """policy server object
+
+   Attribures:
+      name (string): the name of this policy server
+      ms_id (int): the unique id of this policy server
+   """
+   def __init__(self, name, id):
+      self.name = name
+      self.uuid = id
+
+   def __hash__(self):
+      return self.uuid
+
 class GroundStation(object):
       def __init__(self, id, lat, long):
             self.id = id
@@ -394,3 +408,12 @@ class PS(object):
       }
 
       return gs_list
+
+   def ps_init(self, data):
+      ps = PolicySever(data["name"], data["msID"])
+
+      #check if ms is already in set
+      if ps in self.ps_set:
+         pass
+      else:
+         self.ps_set.add(ps)
