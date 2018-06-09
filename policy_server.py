@@ -2,64 +2,67 @@ import json
 from collections import defaultdict
 import sched, time
 
-class MissionServer(object):
-   """mission server object
-
-   Attribures:
-      name (string): the name of this mission server
-      ms_id (int): the unique id of this mission server
-   """
-   def __init__(self, name, id):
+class Server(object):
+   def __init__(self, name, server_id, connRef):
       self.name = name
-      self.uuid = id
-
+      self.uuid = server_id
+      self.connRef = connRef
+   
    def __hash__(self):
       return self.uuid
    def __eq__(self, other):
       return self.uuid == other
 
-class PolicyServer(object):
+
+class MissionServer(Server):
+   """mission server object
+
+   Attribures:
+      name (string): the name of this mission server
+      ms_id (int): the unique id of this mission server
+      connRef : connection reference to mission server
+   """
+   def __init__(self, name, ms_id, connRef):
+      Server.__init__(self, name, ms_id, connRef)
+
+
+class PolicyServer(Server):
    """policy server object
 
    Attribures:
       name (string): the name of this policy server
-      ms_id (int): the unique id of this policy server
+      ps_id (int): the unique id of this policy server
    """
-   def __init__(self, name, id):
-      self.name = name
-      self.uuid = id
+   def __init__(self, name, ps_id, connRef):
+      Server.__init__(name, ps_id, connRef)
+      self.msList = set()
 
-   def __hash__(self):
-      return self.uuid
-   def __eq__(self):
-      return self.uuid
-   def __ne__(self):
-      return self.uuid
-   def __cmp__(self):
-      return self.uuid
 
 class GroundStation(object):
-   def __init__(self, gsID, lat, lon):
+   def __init__(self, gsID, lat, lon, netLocation=None):
       self.gsID = gsID
       self.lat = lat
       self.lon = lon
+      self.netLocation = netLocation
 
    def __hash__(self):
       return self.gsID
    def __eq__(self, other):
       return self.gsID == other
 
+
 class Schedule(object):
    """schedule object
 
    Attributes:
+      server : reference to MissionServer or PolicyServer that sent this request
       gs_id (int): the id of the groundstation related to this schedule
       ms_id (int): the id of the mission server related to this schedule
       start (int): start time of schedule
       end (int): end time of the schedule
    """
-   def __init__(self, req_packet, connRef):
-      self.connRef = connRef
+   def __init__(self, req_packet, server):
+      self.requester = server
       self.reqID = req_packet['reqID']
       self.gsID = req_packet['gsID']
       self.start = req_packet['start']
@@ -121,13 +124,29 @@ class PS(object):
    def __init__(self, scheduler):
       self.id = 0
       self.schedules = {}
-      self.ms_set = set()
       self.gs_set = set() #set of our ground station ids
       self.foreign_gs = {} #all other gs indexed on id, stores connection to reach that gs
       self.scheduler = scheduler
+      self.peers = {} #dictionary of mission servers and policy servers, index by id
 
-   def add_groundstation(self, gsId, lat, long):
-      self.gs_set.add(GroundStation(gsId, lat, long))
+   def add_groundstation_local(self, gsId, lat, lon):
+      self.gs_set.add(GroundStation(gsId, lat, lon, None))
+
+   #def add_groundstation_foreign(self, gsId, lat, lon, connRef):
+   #   self.gs_set.add(GroundStation(gsId, lat, lon, connRef))
+
+   def conn2serverKey(self, conn):
+      keys = [key for key, val in self.peers.iteritems() if val.connRef == conn]
+
+      if len(keys) == 0:
+         return None
+      return keys[0]
+
+   def msID2conn(self, msID):
+      if "ms"+str(msID) in self.peers.keys():
+            return self.peers["ms"+str(msID)].connRef
+      return None
+
 
    def strip_gs_metadata(self, gs_metadata):
       """
@@ -204,7 +223,7 @@ class PS(object):
       """
 
       for gs in stripped_gs_metadata:
-         self.foreign_gs[gs["gsID"]] = connRef
+         self.foreign_gs[gs["gsID"]] = GroundSation(gs["gsID"], gs["lat"], gs["long"], connRef)
 
       return {'all_servers': stripped_gs_metadata}
 
@@ -241,7 +260,7 @@ class PS(object):
          #Forward cancel to corresponding mission server
          reqID = cancel_id
 
-         connRef = cancel_sched.connRef
+         connRef = self.peers[cancel_sched.requester].connRef #TODO what to do if lookup fails
          self.scheduler.cancel(cancel_sched.eventID)
          del self.schedules[cancel_id]
 
@@ -260,7 +279,7 @@ class PS(object):
       acking = False
 
       # create a schedule object
-      request = Schedule(gs_request, connRef)
+      request = Schedule(gs_request, self.conn2serverKey(connRef))
       reqID = request.reqID
 
       #check for conflicts
@@ -336,27 +355,21 @@ class PS(object):
 
       Returns:
       """
+
       # requests for our groundstations
       is_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
       requests_for_our_gs = filter(is_our_gs, gs_requests)
-      #requests_for_our_gs = []
-      #for gs_req in gs_requests:
-      #   for gs in self.gs_set:
-      #      if gs_req['gsID'] == gs.gsID:
-      #         requests_for_our_gs.append(gs_req)
-      #         break
-      print(requests_for_our_gs)
-      print("gsget", 1 in self.gs_set)
 
       responses, cancels = defaultdict(list), defaultdict(list)
       for gs_request in requests_for_our_gs:
          if gs_request['wd']:
-            gsConnection = self.foreign_gs[gs_request['gsID']]
-            responses[gsConnection].append(self.handle_withdrawl(gs_request))
+            #gsConnection = self.foreign_gs[gs_request['gsID']].netLocation #TODO fix netLocation?
+            responses[connRef].append(self.handle_withdrawl(gs_request))
          else:
             some_responses, some_cancels = self.handle_schedule_request(gs_request, connRef)
             merge_dict_of_lists(responses, some_responses)
             merge_dict_of_lists(cancels, some_cancels)
+
 
 
       # requests for other groundstations, we also filter out requests that we
@@ -374,18 +387,60 @@ class PS(object):
       for req in fwd_filtered_requests_for_other_gs:
          r = req["gsID"]
          print(self.foreign_gs)
-         for_gs = self.foreign_gs[r]
-         time_requests[for_gs].append(req)
+         if r in self.foreign_gs.keys():
+            for_gs = self.foreign_gs[r].netLocation
+            #append mission id to request
+            req["reqID"] = conn2serverKey(connRef) + "-" + req["reqID"]
+            time_requests[for_gs].append(req)
+         else:
+            #groundstation doesn't exist, nack
+            responses[connRef].append({"reqID":req["reqID"], "ack":False, "wd":False})
 
 
       combining_packets = []
       if responses: combining_packets.append(('RESP', responses))
-      if cancels: combining_packets.append(('cancel', responses))
+      if cancels: combining_packets.append(('CANCEL', responses))
       if time_requests: combining_packets.append(('TR', responses))
 
       ret = self.format_packets(combining_packets)
       print ret
       return ret
+
+
+   def fwd_responses_to_ms(self, responses):
+
+      packets = {}
+
+      for resp in responses:
+         #strip off the mission id that was added
+         msID = resp["reqID"].split('-', )[0]
+         reqID = resp[len(msID)+1:]
+         connRef = self.peers["ms" + str(msID)].connRef #TODO may fail lookup
+         resp["reqID"] = reqID
+         packets[connRef].append(resp)
+      
+      combining_packets = []
+      combining_packets.append(('RESP', packets))
+
+      return combining_packets
+
+   def fwd_cancel_to_ms(self, cancels):
+
+      packets = {}
+
+      for can in cancels:
+         #strip off the mission id that was added
+         msID = can["reqID"].split('-', )[0]
+         reqID = can[len(msID)+1:]
+         connRef = self.peers["ms" + str(msID)].connRef #TODO may fail lookup
+         can["reqID"] = reqID
+         packets[connRef].append(can)
+
+      combining_packets = []
+      combining_packets.append(('CANCEL', packets))
+
+      return combining_packets
+
 
    #takes a Schedule object as an argument
    def control_gs_start(self, request):
@@ -439,14 +494,10 @@ class PS(object):
       return ('fwd', response_packet)
 
    def ms_init(self, data, connRef):
-      ms = MissionServer(data["name"], data["msID"])
+      ms = MissionServer(data["name"], data["msID"], connRef)
+      key = "ms" + str(data["msID"])
 
-      #check if ms is already in set
-      if ms in self.ms_set:
-         #TODO dont add it if already there?
-         pass
-      else:
-         self.ms_set.add(ms)
+      self.peers[key] = ms
 
       gs_list = {}
       gs_list[connRef] = [{
@@ -456,8 +507,11 @@ class PS(object):
 
       return gs_list
 
-   def ps_init(self, data):
-      ps = PolicySever(data["name"], data["msID"])
+   def ps_init(self, data, connRef):
+      ps = PolicySever(data["name"], data["psID"], connRef)
+      key = "ps" + str(data["psID"])
+
+      self.peers[key] = ps
 
       #check if ms is already in set
       if ps in self.ps_set:
