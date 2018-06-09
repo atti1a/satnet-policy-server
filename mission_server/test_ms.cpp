@@ -42,6 +42,7 @@ void gs_cb(std::vector<struct GroundStationInfo>& gs_list)
     //Use TLE to propagate forward through time
     //Match with the lat and long of gs in list
     //send time requests
+    printf("groundstation callback\n");
 }
 
 void canc_cb(int reqID)
