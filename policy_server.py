@@ -15,6 +15,9 @@ class MissionServer(object):
 
    def __hash__(self):
       return self.uuid
+   def __eq__(self):
+         return self.uuid
+
 
 class PolicyServer(object):
    """policy server object
@@ -29,12 +32,23 @@ class PolicyServer(object):
 
    def __hash__(self):
       return self.uuid
+   def __eq__(self):
+      return self.uuid
+   def __ne__(self):
+      return self.uuid
+   def __cmp__(self):
+      return self.uuid
 
 class GroundStation(object):
-      def __init__(self, id, lat, long):
-            self.id = id
-            self.lat = lat
-            self.long = long
+   def __init__(self, gsID, lat, lon):
+      self.gsID = gsID
+      self.lat = lat
+      self.lon = lon
+
+   def __hash__(self):
+      return self.gsID
+   def __eq__(self, other):
+      return self.gsID == other
 
 class Schedule(object):
    """schedule object
@@ -54,6 +68,12 @@ class Schedule(object):
       self.eventID = -1
 
    def __hash__(self):
+      return self.reqID
+   def __eq__(self):
+      return self.reqID
+   def __ne__(self):
+      return self.reqID
+   def __cmp__(self):
       return self.reqID
 
    def has_conflict(self, sched):
@@ -84,7 +104,7 @@ def merge_dict_of_lists(d1, d2):
 def build_gs_array(gs_set):
       gs_arr = []
       for gs in gs_set:
-         gs_arr.append({"gsID":gs.id, "lat":gs.lat, "long": gs.long})
+         gs_arr.append({"gsID":gs.gsID, "lat":gs.lat, "long": gs.lon})
       return gs_arr
 
 class PS(object):
@@ -107,8 +127,8 @@ class PS(object):
       self.foreign_gs = {} #all other gs indexed on id, stores connection to reach that gs
       self.scheduler = scheduler
 
-   def add_groundstation(self, id, lat, long):
-      self.gs_set.add(GroundStation(id, lat, long))
+   def add_groundstation(self, gsId, lat, long):
+      self.gs_set.add(GroundStation(gsId, lat, long))
 
    def strip_gs_metadata(self, gs_metadata):
       """
@@ -270,7 +290,7 @@ class PS(object):
          acking = True
 
       if acking:
-         request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs_start, (request))
+         request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs_start, (request,))
          self.schedules[gs_request['reqID']] = request
 
       ack = {'reqID': gs_request['reqID'], 'ack': acking, 'wd': False}
@@ -320,6 +340,14 @@ class PS(object):
       # requests for our groundstations
       is_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
       requests_for_our_gs = filter(is_our_gs, gs_requests)
+      #requests_for_our_gs = []
+      #for gs_req in gs_requests:
+      #   for gs in self.gs_set:
+      #      if gs_req['gsID'] == gs.gsID:
+      #         requests_for_our_gs.append(gs_req)
+      #         break
+      print(requests_for_our_gs)
+      print("gsget", 1 in self.gs_set)
 
       responses, cancels = defaultdict(list), defaultdict(list)
       for gs_request in requests_for_our_gs:
@@ -335,16 +363,20 @@ class PS(object):
       # requests for other groundstations, we also filter out requests that we
       # can already fulfill with our own groundstations before sending it out,
       # we can do more filtering if necessary
-      is_not_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
+      is_not_our_gs = lambda gs_request: gs_request['gsID'] not in self.gs_set
       requests_for_other_gs = filter(is_not_our_gs, gs_requests)
 
+      not_scheduled_with_own_gs = lambda x: not self.already_scheduled_with_own_gs(x)
       # NOTE how will we know what policy servers to send these requests too
       fwd_filtered_requests_for_other_gs = \
-         filter(self.already_scheduled_with_own_gs, requests_for_other_gs)
+         filter(not_scheduled_with_own_gs, requests_for_other_gs)
 
       time_requests = defaultdict(list)
       for req in fwd_filtered_requests_for_other_gs:
-         time_requests[self.foreign_gs[req["gsID"]]].append(req)
+         r = req["gsID"]
+         print(self.foreign_gs)
+         for_gs = self.foreign_gs[r]
+         time_requests[for_gs].append(req)
 
 
       combining_packets = []
@@ -352,7 +384,9 @@ class PS(object):
       if cancels: combining_packets.append(('cancel', responses))
       if time_requests: combining_packets.append(('TR', responses))
 
-      return self.format_packets(combining_packets)
+      ret = self.format_packets(combining_packets)
+      print ret
+      return ret
 
    #takes a Schedule object as an argument
    def control_gs_start(self, request):
@@ -383,16 +417,17 @@ class PS(object):
       #TODO check for mission_id to ip mapping
 
       #TODO ??
-      connection_packet = {
-         'authority_ps' : 1,
-         'ms' : request.msID,
-         'time_range': request.start
-      }
+      #connection_packet = {
+      #   'authority_ps' : 1,
+      #   'ms' : request.msID,
+      #   'time_range': request.start
+      #}
 
       #schedule the time end event
-      request.eventID = self.scheduler.enterabs(request.end, 1, self.control_gs_end, (request))
+      request.eventID = self.scheduler.enterabs(request.end, 1, self.control_gs_end, (request,))
 
-      return ("gs", connection_packet)
+      #return ("gs", connection_packet)
+      return None
 
    def control_gs_end(self, request):
       # TODO remove this completed time request from schedules
