@@ -97,6 +97,7 @@ def merge_dict_of_lists(d1, d2):
    """merges a dictionary that has a values of type list
       note: d1 must be a default dict type
    """
+   if not d2: return
    for k, v in d2.iteritems():
       d1[k] += v
 
@@ -223,31 +224,26 @@ class PS(object):
 
       return withdrawl_ack
 
-   def has_priority(self, req_id_1, req_id_2):
-      """ Given two mission server ids, return true if ms_id_1 has priority
+   def has_priority(self, schedule_1, schedule_2):
+      """ Given two schedule objects, return true if ms_id_1 has priority
       over ms_id_2, this implementation is left up to the school
       """
-      # FOR NOW
-      return req_id_1 > req_id_2
+      # TODO implement priority method
+      return schedule_1.reqID > schedule_2.reqID
 
-   def handle_cancel(self, cancel_scheds):
+   def handle_cancel(self, cancels):
       """does the requested cancels
       """
-      cancel_forwards = defaultdict(list)
-      for cancel_id, cancel_sched in cancel_scheds.iteritems():
+      cancel_packets = defaultdict(list)
+      for cancel in cancels:
          # Cancel the schedule by removing it from the policy servers schedule
-         # But also get it so we can get the msID
+         self.scheduler.cancel(cancel.eventID)
+         del self.schedules[cancel.reqID]
 
          #Forward cancel to corresponding mission server
-         reqID = cancel_id
+         cancel_packets[cancel.connRef].append({'reqID': cancel.reqID})
 
-         connRef = cancel_sched.connRef
-         self.scheduler.cancel(cancel_sched.eventID)
-         del self.schedules[cancel_id]
-
-         cancel_forwards[connRef].append({'reqID': reqID})
-
-      return cancel_forwards
+      return cancel_packets
 
    def handle_schedule_request(self, gs_request, connRef):
       """tries to schedule a single request
@@ -255,47 +251,37 @@ class PS(object):
       conflict but has priority --> cancel to original schedule and ack
       no conflict --> ack
       """
-      responses = defaultdict(list)
-      cancels = defaultdict(list)
+      cancel_packets = None
       acking = False
-
-      # create a schedule object
-      request = Schedule(gs_request, connRef)
-      reqID = request.reqID
+      curr_req = Schedule(gs_request, connRef)
 
       #check for conflicts
-      conflicting_schedules = {}
-      for reqID, sched in self.schedules.iteritems():
-         if request.has_conflict(sched):
-            conflicting_schedules[reqID] = sched
+      conflicting_schedules = filter(curr_req.has_conflict, self.schedules.values())
 
-      # If we able to acquire conflicting schedules, we have a conflict
+      # Case 1: we have some conflicting schedules
       if len(conflicting_schedules) > 0:
          #build list of conflicts that are lower priority that the proposed request
-         lower_priority_scheds = {}
-         for reqID, conflict in conflicting_schedules.iteritems():
-            if self.has_priority(conflict.reqID, reqID):
-               lower_priority_scheds[reqID] = conflict
+         has_priority = lambda req: self.has_priority(curr_req, req)
+         lower_priority_scheds = filter(has_priority, conflicting_schedules)
 
-         # If we have a conflict, but have priority over all those conflicts
+      # Case 2: we have conflicts, but we have priority over all those conflicts
          if len(lower_priority_scheds) == len(conflicting_schedules):
             acking = True
-
             # send cancel packet to those conflicts we're overriding
-            merge_dict_of_lists(cancels, self.handle_cancel(conflicting_schedules))
+            cancel_packets = self.handle_cancel(conflicting_schedules)
 
-      # Else, we have no conflict and we can just send an ack
+      # Case 3: we have no conflict and we can just send an ack
       else:
          acking = True
 
       if acking:
-         request.eventID = self.scheduler.enterabs(request.start, 1, self.control_gs_start, (request,))
-         self.schedules[gs_request['reqID']] = request
+         curr_req.eventID = self.scheduler.enterabs(curr_req.start, 1, self.control_gs_start, (curr_req,))
+         self.schedules[curr_req.reqID] = curr_req
 
-      ack = {'reqID': gs_request['reqID'], 'ack': acking, 'wd': False}
-      responses[connRef].append(ack)
+      ack = {'reqID': curr_req.reqID, 'ack': acking, 'wd': False}
+      ack_packet = {connRef: [ack]}
 
-      return responses, cancels
+      return ack_packet, cancel_packets
 
    def already_scheduled_with_own_gs(self, gs_request):
       """tells you if this gs_request has already been fulfilled by our own
@@ -304,7 +290,7 @@ class PS(object):
       # isntantiate object just so we can use the method
       request = Schedule(gs_request, None)
 
-      for reqID, schedule in self.schedules.iteritems():
+      for schedule in self.schedules.values():
          if request.has_conflict(schedule): return True
 
       return False
@@ -343,8 +329,10 @@ class PS(object):
       responses, cancels = defaultdict(list), defaultdict(list)
       for gs_request in requests_for_our_gs:
          if gs_request['wd']:
-            gsConnection = self.foreign_gs[gs_request['gsID']]
-            responses[gsConnection].append(self.handle_withdrawl(gs_request))
+            #gs_connection = self.foreign_gs[gs_request['gsID']]
+            # NOTE maybe ad gsID to withdrawl, if not gotta restructure this
+            original_connection = self.schedules[gs_request['reqID']].connRef
+            responses[original_connection].append(self.handle_withdrawl(gs_request))
          else:
             some_responses, some_cancels = self.handle_schedule_request(gs_request, connRef)
             merge_dict_of_lists(responses, some_responses)
@@ -357,17 +345,14 @@ class PS(object):
       is_not_our_gs = lambda gs_request: gs_request['gsID'] not in self.gs_set
       requests_for_other_gs = filter(is_not_our_gs, gs_requests)
 
+      # want an inverted version of the method
       not_scheduled_with_own_gs = lambda x: not self.already_scheduled_with_own_gs(x)
-      # NOTE how will we know what policy servers to send these requests too
-      fwd_filtered_requests_for_other_gs = \
-         filter(not_scheduled_with_own_gs, requests_for_other_gs)
+      filtered_requests_for_other_gs = filter(not_scheduled_with_own_gs, requests_for_other_gs)
 
       time_requests = defaultdict(list)
-      for req in fwd_filtered_requests_for_other_gs:
-         r = req["gsID"]
-         for_gs = self.foreign_gs[r]
-         time_requests[for_gs].append(req)
-
+      for req in filtered_requests_for_other_gs:
+         gs_connection = self.foreign_gs[req['gsID']]
+         time_requests[gs_connection].append(req)
 
       combining_packets = []
       if responses: combining_packets.append(('RESP', responses))
