@@ -165,8 +165,8 @@ int main(int argc, char **argv)
     //TO DO allow specification of time to schedule sending requests
     EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(3 * 1000),&request_cb, (void *)&ms);
 
-    add_time(ms, 20, 13, 10);
-    //add_time(ms, 1, 26, 1);
+    //add_time(ms, 20, 13, 0);
+    add_time(ms, 1, 26, 11);
     //add_time(ms, 45, 55, 1);
     //ms.queue_withdrawl_request(2);
     //ms.send_time_request();
