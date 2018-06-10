@@ -15,8 +15,15 @@ class MissionServer(object):
 
    def __hash__(self):
       return self.uuid
-   def __eq__(self, other):
-      return self.uuid == other
+   def __eq__(self, otherMS):
+      if isinstance(otherMS, MissionServer):
+         return self.uuid == otherMS.uuid
+      elif isinstance(otherMS, int):
+         return self.uuid == otherMS
+      else:
+         return False
+   def __ne__(self, otherMS):
+      return not self == otherMS
 
 class PolicyServer(object):
    """policy server object
@@ -31,12 +38,15 @@ class PolicyServer(object):
 
    def __hash__(self):
       return self.uuid
-   def __eq__(self):
-      return self.uuid
-   def __ne__(self):
-      return self.uuid
-   def __cmp__(self):
-      return self.uuid
+   def __eq__(self, otherPS):
+      if isinstance(otherPS, PolicyServer):
+         return self.uuid == otherPS.uuid
+      elif isinstance(otherPS, int):
+         return self.uuid == otherPS
+      else:
+         return False
+   def __ne__(self, otherPS):
+      return not self == otherPS
 
 class GroundStation(object):
    def __init__(self, gsID, lat, lon):
@@ -46,8 +56,15 @@ class GroundStation(object):
 
    def __hash__(self):
       return self.gsID
-   def __eq__(self, other):
-      return self.gsID == other
+   def __eq__(self, otherGS):
+      if isinstance(otherGS, GroundStation):
+         return self.gsID == otherGS.gsID
+      elif isinstance(otherGS, int):
+         return self.gsID == otherGS
+      else:
+         return False
+   def __ne__(self, otherGS):
+      return not self == otherGS
 
 class Schedule(object):
    """schedule object
@@ -68,12 +85,15 @@ class Schedule(object):
 
    def __hash__(self):
       return self.reqID
-   def __eq__(self):
-      return self.reqID
-   def __ne__(self):
-      return self.reqID
-   def __cmp__(self):
-      return self.reqID
+   def __eq__(self, otherSched):
+      if isinstance(otherSched, Schedule):
+         return self.gsID == otherSched.gsID
+      elif isinstance(otherSched, str):
+         return self.gsID == otherSched
+      else:
+         return False
+   def __ne__(self, otherSched):
+      return not self == otherSched
 
    def has_conflict(self, sched):
       """Tells you if the passed in schedule has a conflict with the current
@@ -261,14 +281,14 @@ class PS(object):
 
       if len(conflicting_schedules) > 0:
          #build list of conflicts that are lower priority that the proposed request
-         has_priority = lambda req: self.has_priority(curr_req, req)
+         has_priority = lambda schedule: self.has_priority(curr_req, schedule)
          lower_priority_scheds = filter(has_priority, conflicting_schedules)
 
       # Case 2: we have conflicts, but we have priority over all those conflicts
          if len(lower_priority_scheds) == len(conflicting_schedules):
             # send cancel packet to those conflicts we're overriding
             cancel_packets = self.cancel_schedules(conflicting_schedules)
-      # Case 1: we have some conflicting schedules and no priority over them, only way ack is False
+      # Case 1: we have some conflicting schedules and no priority over them, only case where ack is False
          else:
             acking = False
       # Case 3: implicit, if no conflicts we already have ack to true
@@ -282,10 +302,17 @@ class PS(object):
 
       return ack_packet, cancel_packets
 
-   def already_scheduled_with_own_gs(self, gs_request):
+   def unecessary_forward(self, gs_request):
       """tells you if this gs_request has already been fulfilled by our own
       groundstations so that we can filter some requests for other gs before
-      sending it out"""
+      sending it out
+
+      but you can put any other heuristic to determine if a gs_request is unecessary
+      """
+      # If its a withdrawl, we forward it regardless
+      if gs_request['wd']: return False
+
+      # Else, we check if a request is already fulfilled by our own gs
       # isntantiate object just so we can use the method
       request = Schedule(gs_request, None)
 
@@ -345,14 +372,17 @@ class PS(object):
                #      we need to either make msIDs unique or append psID to the front
                original_connection = self.schedules[gs_request['reqID']].conn
                response_packets[original_connection].append(self.handle_withdrawl(gs_request))
-            else:
+            elif not gs_request['wd']:
                some_responses, some_cancels = self.handle_schedule_request(gs_request, conn)
                merge_dict_of_lists(response_packets, some_responses)
                merge_dict_of_lists(cancel_packets, some_cancels)
 
-         elif not self.meant_for_us(gs_request) and not self.already_scheduled_with_own_gs(gs_request):
-            gs_connection = self.foreign_gs[gs_request['gsID']]
-            time_request_packets[gs_connection].append(gs_request)
+         elif not self.meant_for_us(gs_request) or not self.unecessary_forward(gs_request):
+            # NOTE no way to know where to forward withdrawl too without gsData
+            if gs_request['wd']:       connection = self.schedules[gs_request['reqID']].conn
+            elif not gs_request['wd']: connection = self.foreign_gs[gs_request['gsID']]
+
+            time_request_packets[connection].append(gs_request)
 
       unformatted_packet_sets = []
       if response_packets:     unformatted_packet_sets.append(('RESP', response_packets))

@@ -78,7 +78,13 @@ def test_handle_request():
       {"reqID": "3-3", "gsID": 2, "start": 21, "end": 40, "wd": False},
    ]
    ms1_withdrawl = [
-      {"reqID": "1-3", 'gsID': 1, "wd": True}
+      {"reqID": "1-3", "wd": True}
+   ]
+   ms3_incorrect_withdrawl = [
+      {"reqID": "3-9", "wd": True}
+   ]
+   ms1_lower_priority_attempt = [
+      {"reqID": "1-6", "gsID": 2, "start": 20, "end": 234, "wd": False},
    ]
 
    policy_server.add_groundstation(1, 1, 8)
@@ -86,13 +92,17 @@ def test_handle_request():
    response = policy_server.fwd_stripped_gs_metadata(gs_metadata, "purdue")
    print_response('fwd_stripped_gs_metadata', response)
    response = policy_server.handle_requests(ms1_two_gs_with_no_conflicts, "ms1")
-   print_response('handle_requests', response)
+   print_response('handle_requests:ms1_two_gs_with_no_conflicts', response)
    response = policy_server.handle_requests(ms2_two_gs_with_one_conflict, "ms2")
-   print_response('handle_requests', response)
+   print_response('handle_requests:ms2_two_gs_with_one_conflict', response)
    response = policy_server.handle_requests(ms3_two_gs_with_two_conflicts, "ms3")
-   print_response('handle_requests', response)
+   print_response('handle_requests:ms3_two_gs_with_two_conflicts', response)
    response = policy_server.handle_requests(ms1_withdrawl, "ms1")
-   print_response('handle_requests', response)
+   print_response('handle_requests:ms1_withdrawl', response)
+   response = policy_server.handle_requests(ms3_incorrect_withdrawl, "ms1")
+   print_response('handle_requests:ms3_incorrect_withdrawl', response)
+   response = policy_server.handle_requests(ms1_lower_priority_attempt, "ms1")
+   print_response('handle_requests:ms1_lower_priority_attempt', response)
    #################################################################################################
    #endregion
 
