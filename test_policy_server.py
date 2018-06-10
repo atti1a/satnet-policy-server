@@ -77,7 +77,7 @@ def test_handle_request():
       {"reqID": "3-2", "gsID": 1, "start": 4, "end": 5, "wd": False},
       {"reqID": "3-3", "gsID": 2, "start": 21, "end": 40, "wd": False},
    ]
-   ms2_two_gs_with_one_conflict = [
+   ms1_withdrawl = [
       {"reqID": "1-3", 'gsID': 1, "wd": True}
    ]
 
@@ -90,6 +90,8 @@ def test_handle_request():
    response = policy_server.handle_requests(ms2_two_gs_with_one_conflict, "ms2")
    print_response('handle_requests', response)
    response = policy_server.handle_requests(ms3_two_gs_with_two_conflicts, "ms3")
+   print_response('handle_requests', response)
+   response = policy_server.handle_requests(ms1_withdrawl, "ms1")
    print_response('handle_requests', response)
    #################################################################################################
    #endregion
