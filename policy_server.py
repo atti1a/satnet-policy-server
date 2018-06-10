@@ -331,6 +331,9 @@ class PS(object):
          if gs_request['wd']:
             #gs_connection = self.foreign_gs[gs_request['gsID']]
             # NOTE maybe ad gsID to withdrawl, if not gotta restructure this
+            # NOTE reqID is not enough to make each packet unique, since mission servers
+            #      are not unique and they all are just incrementing their count
+            #      we need to either make msIDs unique or append psID to the front
             original_connection = self.schedules[gs_request['reqID']].connRef
             responses[original_connection].append(self.handle_withdrawl(gs_request))
          else:
