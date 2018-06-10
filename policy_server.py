@@ -103,10 +103,14 @@ def merge_dict_of_lists(d1, d2):
    for k, v in d2.iteritems():
       d1[k] += v
 
-def build_gs_array(gs_set):
+def build_gs_array(gs_set, other_gs=None):
       gs_arr = []
       for gs in gs_set:
          gs_arr.append({"gsID":gs.gsID, "lat":gs.lat, "long": gs.lon})
+
+      if other_gs != None:
+         for key, gs in other_gs.iteritems():
+            gs_arr.append({"gsID":gs.gsID, "lat":gs.lat, "long": gs.lon})
       return gs_arr
 
 class PS(object):
@@ -222,10 +226,11 @@ class PS(object):
          (policy and mission)
       """
 
-      for gs in stripped_gs_metadata:
-         self.foreign_gs[gs["gsID"]] = GroundSation(gs["gsID"], gs["lat"], gs["long"], connRef)
+      for gs in stripped_gs_metadata["gsList"]:
+         self.foreign_gs[gs["gsID"]] = GroundStation(gs["gsID"], gs["lat"], gs["long"], connRef)
 
-      return {'all_servers': stripped_gs_metadata}
+      return []
+      #return {'all_servers': stripped_gs_metadata}
 
    def handle_withdrawl(self, gs_request):
       """checks if withdrawl reqID is actually in our schedule, if it does, we
@@ -330,7 +335,7 @@ class PS(object):
 
    def format_packets(self, list_of_packet_dicts):
       list_name_mapping = {
-         'cancel': 'cancelList',
+         'CANCEL': 'cancelList',
          'GS': 'gsList',
          'RESP': 'respList',
          'TR': 'trList'
@@ -386,47 +391,47 @@ class PS(object):
       time_requests = defaultdict(list)
       for req in fwd_filtered_requests_for_other_gs:
          r = req["gsID"]
-         print(self.foreign_gs)
          if r in self.foreign_gs.keys():
             for_gs = self.foreign_gs[r].netLocation
             #append mission id to request
-            req["reqID"] = conn2serverKey(connRef) + "-" + req["reqID"]
+            req["reqID"] = self.conn2serverKey(connRef) + "-" + req["reqID"]
             time_requests[for_gs].append(req)
          else:
             #groundstation doesn't exist, nack
             responses[connRef].append({"reqID":req["reqID"], "ack":False, "wd":False})
 
-
       combining_packets = []
       if responses: combining_packets.append(('RESP', responses))
-      if cancels: combining_packets.append(('CANCEL', responses))
-      if time_requests: combining_packets.append(('TR', responses))
+      if cancels: combining_packets.append(('CANCEL', cancels))
+      if time_requests: combining_packets.append(('TR', time_requests))
 
       ret = self.format_packets(combining_packets)
-      print ret
       return ret
 
 
    def fwd_responses_to_ms(self, responses):
 
-      packets = {}
+      packets = defaultdict(list)
 
       for resp in responses:
          #strip off the mission id that was added
+         reqID = resp["reqID"]
          msID = resp["reqID"].split('-', )[0]
-         reqID = resp[len(msID)+1:]
-         connRef = self.peers["ms" + str(msID)].connRef #TODO may fail lookup
+         reqID = reqID[len(msID)+1:]
+         connRef = self.peers[str(msID)].connRef #TODO may fail lookup
          resp["reqID"] = reqID
          packets[connRef].append(resp)
-      
+         packets["a"].append(resp)
+   
       combining_packets = []
-      combining_packets.append(('RESP', packets))
+      if packets: combining_packets.append(('RESP', packets))
 
-      return combining_packets
+      ret = self.format_packets(combining_packets)
+      return ret
 
    def fwd_cancel_to_ms(self, cancels):
 
-      packets = {}
+      packets = defaultdict(list)
 
       for can in cancels:
          #strip off the mission id that was added
@@ -437,9 +442,10 @@ class PS(object):
          packets[connRef].append(can)
 
       combining_packets = []
-      combining_packets.append(('CANCEL', packets))
+      if packets: combining_packets.append(('CANCEL', packets))
 
-      return combining_packets
+      ret = self.format_packets(combining_packets)
+      return ret
 
 
    #takes a Schedule object as an argument
@@ -502,7 +508,7 @@ class PS(object):
       gs_list = {}
       gs_list[connRef] = [{
          "type":"GS",
-         "gsList":build_gs_array(self.gs_set)
+         "gsList":build_gs_array(self.gs_set, self.foreign_gs)
       }]
 
       return gs_list
@@ -513,8 +519,10 @@ class PS(object):
 
       self.peers[key] = ps
 
-      #check if ms is already in set
-      # if ps in self.ps_set:
-      #    pass
-      # else:
-      #    self.ps_set.add(ps)
+      gs_list = {}
+      gs_list[connRef] = [{
+         "type":"GS",
+         "gsList":build_gs_array(self.gs_set)
+      }]
+
+      return gs_list

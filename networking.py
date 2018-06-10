@@ -186,9 +186,9 @@ class JsonHandler(GenericHandler):
         if message_type == JsonProtocolType.TR:
             return self._handle_TR(data)
         elif message_type == JsonProtocolType.RESP:
-            return self.ps_logic.fwd_responses_to_ms(data)
+            return self._handle_FWD_RESP(data)
         elif message_type == JsonProtocolType.GS:
-            return self.ps_logic.fwd_stripped_gs_metadata(data)
+            return self.ps_logic.fwd_stripped_gs_metadata(data, self)
         elif message_type == JsonProtocolType.CANCEL:
             return self.ps_logic.fwd_cancel_to_ms(data)
         elif message_type == JsonProtocolType.PS_INIT:
@@ -213,8 +213,15 @@ class JsonHandler(GenericHandler):
     def _handle_TR(self, data):
         resps = self.ps_logic.handle_requests(data['trList'], self)
 
-        print("TR Responses")
-        print(resps)
+        send_tuples = []
+        for dst, packets in resps.iteritems():
+            for packet in packets:
+                send_tuples.append((dst, packet))
+
+        return send_tuples
+
+    def _handle_FWD_RESP(self, data):
+        resps = self.ps_logic.fwd_responses_to_ms(data['respList'])
 
         send_tuples = []
         for dst, packets in resps.iteritems():
@@ -227,12 +234,19 @@ class JsonHandler(GenericHandler):
     def _handle_PS_INIT(self, data):
 
         self.logger.debug("Converting %s to %s", self.peer, Peer.PolicyServer)
-        self.ps_logic.ps_init(data, self)
+        gs_data = self.ps_logic.ps_init(data, self)
         self.peer = Peer.PolicyServer
         self.ps_handler_roster[data['psID']] = self
         self._handle_by_msg_type = self._handle_by_msg_type_ps
         self.send_ps_metadata()
-        return []
+        
+        send_tuples = []
+
+        for dst, packets in gs_data.iteritems():
+            for packet in packets:
+                send_tuples.append((dst, packet))
+
+        return send_tuples
 
 
     def _handle_MS_INIT(self, data):
@@ -248,8 +262,6 @@ class JsonHandler(GenericHandler):
         self._handle_by_msg_type = self._handle_by_msg_type_ms
         
         gs_data = self.ps_logic.ms_init(data, self)
-
-        print(gs_data)
 
         send_tuples = []
 
@@ -335,9 +347,9 @@ def main():
             continue
 
     #TODO this is for testing
-    ps_logic.add_groundstation_local(0, 12, 13)
-    ps_logic.add_groundstation_local(1, 32, 33)
-    ps_logic.add_groundstation_local(2, 4, 11)
+    ps_logic.add_groundstation_local(10, 12, 13)
+    ps_logic.add_groundstation_local(11, 32, 33)
+    ps_logic.add_groundstation_local(12, 4, 11)
 
 
     while True:
