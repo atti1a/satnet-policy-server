@@ -339,14 +339,6 @@ class PS(object):
       # requests for our groundstations
       is_our_gs = lambda gs_request: gs_request['gsID'] in self.gs_set
       requests_for_our_gs = filter(is_our_gs, gs_requests)
-      #requests_for_our_gs = []
-      #for gs_req in gs_requests:
-      #   for gs in self.gs_set:
-      #      if gs_req['gsID'] == gs.gsID:
-      #         requests_for_our_gs.append(gs_req)
-      #         break
-      print(requests_for_our_gs)
-      print("gsget", 1 in self.gs_set)
 
       responses, cancels = defaultdict(list), defaultdict(list)
       for gs_request in requests_for_our_gs:
@@ -373,19 +365,16 @@ class PS(object):
       time_requests = defaultdict(list)
       for req in fwd_filtered_requests_for_other_gs:
          r = req["gsID"]
-         print(self.foreign_gs)
          for_gs = self.foreign_gs[r]
          time_requests[for_gs].append(req)
 
 
       combining_packets = []
       if responses: combining_packets.append(('RESP', responses))
-      if cancels: combining_packets.append(('cancel', responses))
-      if time_requests: combining_packets.append(('TR', responses))
+      if cancels: combining_packets.append(('cancel', cancels))
+      if time_requests: combining_packets.append(('TR', time_requests))
 
-      ret = self.format_packets(combining_packets)
-      print ret
-      return ret
+      return self.format_packets(combining_packets)
 
    #takes a Schedule object as an argument
    def control_gs_start(self, request):
