@@ -367,9 +367,6 @@ class PS(object):
       for gs_request in gs_requests:
          if self.meant_for_us(gs_request):
             if gs_request['wd']:
-               # NOTE reqID is not enough to make each packet unique, since mission servers
-               #      are not unique and they all are just incrementing their count
-               #      we need to either make msIDs unique or append psID to the front
                original_connection = self.schedules[gs_request['reqID']].conn
                response_packets[original_connection].append(self.handle_withdrawl(gs_request))
             elif not gs_request['wd']:
