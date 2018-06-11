@@ -3,10 +3,10 @@ from collections import defaultdict
 import sched, time
 
 class Server(object):
-   def __init__(self, name, server_id, connRef):
+   def __init__(self, name, server_id, conn):
       self.name = name
       self.uuid = server_id
-      self.connRef = connRef
+      self.conn = conn
 
    def __hash__(self):
       return self.uuid
@@ -20,10 +20,10 @@ class MissionServer(Server):
    Attribures:
       name (string): the name of this mission server
       ms_id (int): the unique id of this mission server
-      connRef : connection reference to mission server
+      conn : connection reference to mission server
    """
-   def __init__(self, name, ms_id, connRef):
-      Server.__init__(self, name, ms_id, connRef)
+   def __init__(self, name, ms_id, conn):
+      Server.__init__(self, name, ms_id, conn)
 
    def __hash__(self):
       return self.uuid
@@ -44,8 +44,8 @@ class PolicyServer(Server):
       name (string): the name of this policy server
       ps_id (int): the unique id of this policy server
    """
-   def __init__(self, name, ps_id, connRef):
-      Server.__init__(self, name, ps_id, connRef)
+   def __init__(self, name, ps_id, conn):
+      Server.__init__(self, name, ps_id, conn)
       self.msList = set()
 
    def __hash__(self):
@@ -169,11 +169,11 @@ class PS(object):
    def add_groundstation_local(self, gsId, lat, lon):
       self.gs_set.add(GroundStation(gsId, lat, lon, None))
 
-   #def add_groundstation_foreign(self, gsId, lat, lon, connRef):
-   #   self.gs_set.add(GroundStation(gsId, lat, lon, connRef))
+   #def add_groundstation_foreign(self, gsId, lat, lon, conn):
+   #   self.gs_set.add(GroundStation(gsId, lat, lon, conn))
 
    def conn2serverKey(self, conn):
-      keys = [key for key, val in self.peers.iteritems() if val.connRef == conn]
+      keys = [key for key, val in self.peers.iteritems() if val.conn == conn]
 
       if len(keys) == 0:
          return None
@@ -181,7 +181,7 @@ class PS(object):
 
    def msID2conn(self, msID):
       if "ms"+str(msID) in self.peers.keys():
-            return self.peers["ms"+str(msID)].connRef
+            return self.peers["ms"+str(msID)].conn
       return None
 
 
@@ -294,11 +294,11 @@ class PS(object):
       cancel_packets = defaultdict(list)
       for schedule in schedules_to_be_canceled:
          # Cancel the schedule by removing it from the policy servers schedule
-         connRef = self.peers[schedule.requester].connRef #TODO what to do if lookup fails
+         conn = self.peers[schedule.requester].conn #TODO what to do if lookup fails
          self.scheduler.cancel(schedule.eventID)
          del self.schedules[schedule.reqID]
 
-         cancel_packets[connRef].append({'reqID': schedule.reqID})
+         cancel_packets[conn].append({'reqID': schedule.reqID})
 
       return cancel_packets
 
@@ -440,9 +440,9 @@ class PS(object):
          reqID = resp["reqID"]
          msID = resp["reqID"].split('-', )[0]
          reqID = reqID[len(msID)+1:]
-         connRef = self.peers[str(msID)].connRef #TODO may fail lookup
+         conn = self.peers[str(msID)].conn #TODO may fail lookup
          resp["reqID"] = reqID
-         packets[connRef].append(resp)
+         packets[conn].append(resp)
          packets["a"].append(resp)
 
       combining_packets = []
@@ -459,9 +459,9 @@ class PS(object):
          #strip off the mission id that was added
          msID = can["reqID"].split('-', )[0]
          reqID = can[len(msID)+1:]
-         connRef = self.peers["ms" + str(msID)].connRef #TODO may fail lookup
+         conn = self.peers["ms" + str(msID)].conn #TODO may fail lookup
          can["reqID"] = reqID
-         packets[connRef].append(can)
+         packets[conn].append(can)
 
       combining_packets = []
       if packets: combining_packets.append(('CANCEL', packets))
@@ -535,14 +535,14 @@ class PS(object):
 
       return gs_list
 
-   def ps_init(self, data, connRef):
-      ps = PolicyServer(data["name"], data["psID"], connRef)
+   def ps_init(self, data, conn):
+      ps = PolicyServer(data["name"], data["psID"], conn)
       key = "ps" + str(data["psID"])
 
       self.peers[key] = ps
 
       gs_list = {}
-      gs_list[connRef] = [{
+      gs_list[conn] = [{
          "type":"GS",
          "gsList":build_gs_array(self.gs_set)
       }]
