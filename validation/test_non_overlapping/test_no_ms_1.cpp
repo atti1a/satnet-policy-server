@@ -43,6 +43,7 @@ void gs_cb(std::vector<struct GroundStationInfo>& gs_list)
     //Match with the lat and long of gs in list
     //send time requests
     printf("groundstation callback\n");
+    printf("number: %d\n", gs_list.size());
 }
 
 void canc_cb(int reqID)
@@ -166,7 +167,7 @@ int main(int argc, char **argv)
     EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(3 * 1000),&request_cb, (void *)&ms);
 
     add_time(ms, 20, 13, 10);
-    //add_time(ms, 1, 26, 1);
+    add_time(ms, 1, 26, 1);
     add_time(ms, 45, 55, 11);
     //ms.queue_withdrawl_request(2);
     //ms.send_time_request();

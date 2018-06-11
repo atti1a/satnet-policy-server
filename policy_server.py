@@ -387,8 +387,7 @@ class PS(object):
       for gs_request in gs_requests:
          if self.meant_for_us(gs_request):
             if gs_request['wd']:
-               original_connection = self.schedules[gs_request['reqID']].conn
-               response_packets[original_connection].append(self.handle_withdrawl(gs_request))
+               response_packets[conn].append(self.handle_withdrawl(gs_request))
             elif not gs_request['wd']:
                some_responses, some_cancels = self.handle_schedule_request(gs_request, conn)
                merge_dict_of_lists(response_packets, some_responses)
@@ -407,7 +406,7 @@ class PS(object):
 
                   time_request_packets[connection].append(gs_request)
                else: #groundstation doesn't exist, nack
-                  response_packets[connection].append({"reqID":gs_request["reqID"], "ack":False, "wd":False})
+                  response_packets[conn].append({"reqID":gs_request["reqID"], "ack":False, "wd":False})
 
       unformatted_packet_sets = []
       if response_packets:     unformatted_packet_sets.append(('RESP', response_packets))
