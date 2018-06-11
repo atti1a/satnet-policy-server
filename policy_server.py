@@ -5,13 +5,20 @@ import sched, time
 class Server(object):
    def __init__(self, name, server_id, conn):
       self.name = name
-      self.uuid = server_id
+      self.uuID = server_id
       self.conn = conn
 
    def __hash__(self):
-      return self.uuid
+      return self.uuID
    def __eq__(self, other):
-      return self.uuid == other
+      if isinstance(other, Server):
+         return self.uuID == other.uuID
+      elif isinstance(other, int):
+         return self.uuID == other
+      else:
+         return False
+   def __ne__(self, other):
+      return not self == other
 
 
 class MissionServer(Server):
@@ -25,17 +32,6 @@ class MissionServer(Server):
    def __init__(self, name, ms_id, conn):
       Server.__init__(self, name, ms_id, conn)
 
-   def __hash__(self):
-      return self.uuid
-   def __eq__(self, otherMS):
-      if isinstance(otherMS, MissionServer):
-         return self.uuid == otherMS.uuid
-      elif isinstance(otherMS, int):
-         return self.uuid == otherMS
-      else:
-         return False
-   def __ne__(self, otherMS):
-      return not self == otherMS
 
 class PolicyServer(Server):
    """policy server object
@@ -47,18 +43,6 @@ class PolicyServer(Server):
    def __init__(self, name, ps_id, conn):
       Server.__init__(self, name, ps_id, conn)
       self.msList = set()
-
-   def __hash__(self):
-      return self.uuid
-   def __eq__(self, otherPS):
-      if isinstance(otherPS, PolicyServer):
-         return self.uuid == otherPS.uuid
-      elif isinstance(otherPS, int):
-         return self.uuid == otherPS
-      else:
-         return False
-   def __ne__(self, otherPS):
-      return not self == otherPS
 
 class GroundStation(object):
    def __init__(self, gsID, lat, lon, netLocation=None):
