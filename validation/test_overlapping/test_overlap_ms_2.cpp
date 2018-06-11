@@ -94,6 +94,11 @@ int bind_to_local_addr(std::string local_addr, int port){
         printf("Error creating binding socket. Exiting...\n");
         exit(1);
     }
+    //add so that the socket can be reused
+    int set = 1;
+    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int)) < 0){
+        perror("Unable to set socket to be reused");
+    }
 
     //TO DO only supports IPv4
     struct sockaddr_in local_sock;
@@ -165,8 +170,8 @@ int main(int argc, char **argv)
     //TO DO allow specification of time to schedule sending requests
     EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(3 * 1000),&request_cb, (void *)&ms);
 
-    add_time(ms, 20, 13, 10);
-    //add_time(ms, 1, 26, 1);
+    //add_time(ms, 20, 13, 0);
+    add_time(ms, 46, 60, 11);
     //add_time(ms, 45, 55, 1);
     //ms.queue_withdrawl_request(2);
     //ms.send_time_request();

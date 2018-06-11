@@ -69,9 +69,6 @@ void wd_cb(int reqID, bool accepted)
 
 int request_cb(void *arg){
     MissionSocket *ms = (MissionSocket *)arg;
-    if(time_requests.size() == 0){
-        return EVENT_KEEP;
-    }
     ms->send_time_request();
     return EVENT_KEEP;
 }
@@ -96,6 +93,11 @@ int bind_to_local_addr(std::string local_addr, int port){
     if(sockfd == -1){
         printf("Error creating binding socket. Exiting...\n");
         exit(1);
+    }
+    //add so that the socket can be reused
+    int set = 1;
+    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int)) < 0){
+        perror("Unable to set socket to be reused");
     }
 
     //TO DO only supports IPv4
@@ -166,7 +168,7 @@ int main(int argc, char **argv)
     ms.send_init();
 
     //TO DO allow specification of time to schedule sending requests
-    EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(2 * 1000),&request_cb, (void *)&ms);
+    EVT_sched_add(proc->event_manager()->state(), EVT_ms2tv(3 * 1000),&request_cb, (void *)&ms);
 
     add_time(ms, 20, 13, 0);
     add_time(ms, 1, 26, 1);
