@@ -400,7 +400,6 @@ class PS(object):
 
                time_request_packets[connection].append(gs_request)
             elif not gs_request['wd']:
-               print("foreign packet, ", self.foreign_gs)
                if gs_request["gsID"] in self.foreign_gs.keys():
                   connection = self.foreign_gs[gs_request['gsID']].netLocation
                   gs_request["reqID"] = self.conn2serverKey(conn) + "-" + gs_request["reqID"]
