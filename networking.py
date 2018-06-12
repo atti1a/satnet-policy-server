@@ -346,10 +346,14 @@ def main():
             lg.debug(e)
             continue
 
-    #TODO this is for testing
-    ps_logic.add_groundstation_local(10, 12, 13)
-    ps_logic.add_groundstation_local(11, 32, 33)
-    ps_logic.add_groundstation_local(12, 4, 11)
+    for _, gs in config.items('groundstations'):
+        try:
+            id, lat, lon = gs.split(',')
+            ps_logic.add_groundstation_local(int(id), int(lat), int(lon))
+        except Exception as e:
+            lg.warning("Groundstation loading error")
+            lg.debug(e)
+            continue
 
 
     while True:

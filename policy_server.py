@@ -400,13 +400,16 @@ class PS(object):
 
                time_request_packets[connection].append(gs_request)
             elif not gs_request['wd']:
-               if gs_request in self.foreign_gs.keys():
+               print("foreign packet, ", self.foreign_gs)
+               if gs_request["gsID"] in self.foreign_gs.keys():
                   connection = self.foreign_gs[gs_request['gsID']].netLocation
                   gs_request["reqID"] = self.conn2serverKey(conn) + "-" + gs_request["reqID"]
 
                   time_request_packets[connection].append(gs_request)
                else: #groundstation doesn't exist, nack
                   response_packets[conn].append({"reqID":gs_request["reqID"], "ack":False, "wd":False})
+         else: #wont be fullfilled
+            response_packets[conn].append({"reqID":gs_request["reqID"], "ack":False, "wd":False})
 
       unformatted_packet_sets = []
       if response_packets:     unformatted_packet_sets.append(('RESP', response_packets))
